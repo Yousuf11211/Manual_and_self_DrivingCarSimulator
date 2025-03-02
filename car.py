@@ -129,9 +129,14 @@ class Car:
         for d in range(-90, 91, 30):
             self.check_radar(d, collision_mask)
 
-    def get_data(self) -> List[int]:
-        """Return scaled sensor distances (7 values) for neural network input."""
-        return [int(r[1] / 30) for r in self.radars]
+    def get_data(self) -> List[float]:
+        """
+        Return normalized sensor distances (7 values between 0 and 1) plus the
+        normalized speed as an extra input for the neural network.
+        """
+        sensors = [r[1] / RADAR_MAX_LENGTH for r in self.radars]
+        normalized_speed = self.speed / 15.0  # Assuming max speed is roughly 15.
+        return sensors + [normalized_speed]
 
     def get_alive(self) -> bool:
         """Return whether the car is still alive."""
@@ -140,6 +145,7 @@ class Car:
     def get_reward(self) -> float:
         """
         Compute a reward based on distance traveled, survival time, and safety (from sensor data).
+        If the car has crashed, a penalty is applied.
         """
         base_weight = 1.0
         time_weight = 0.5
@@ -149,6 +155,10 @@ class Car:
         time_reward = self.time_spent / 100.0
         min_distance = min([r[1] for r in self.radars], default=0)
         safety_reward = min_distance / RADAR_MAX_LENGTH
+
+        # If the car is dead, apply a penalty.
+        if not self.is_alive:
+            return base_reward + time_reward + safety_reward - 50.0
 
         return base_weight * base_reward + time_weight * time_reward + safety_weight * safety_reward
 

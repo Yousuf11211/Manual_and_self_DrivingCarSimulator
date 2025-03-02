@@ -2,10 +2,11 @@ import pygame
 import sys
 import neat
 import os
-from car import Car, SCREEN_WIDTH, SCREEN_HEIGHT
+from car import Car, SCREEN_WIDTH, SCREEN_HEIGHT, RADAR_MAX_LENGTH
 from typing import List
 
 WHITE = (255, 255, 255)
+
 
 def select_map(screen: pygame.Surface, font: pygame.font.Font) -> str:
     maps_folder = "maps"
@@ -40,19 +41,24 @@ def select_map(screen: pygame.Surface, font: pygame.font.Font) -> str:
         pygame.display.flip()
     return os.path.join(maps_folder, map_files[selected_index])
 
+
 def draw_map_button(screen: pygame.Surface, font: pygame.font.Font) -> pygame.Rect:
+    """Draw a 'Map' button in the top-right corner."""
     button_rect = pygame.Rect(SCREEN_WIDTH - 110, 10, 100, 40)
     pygame.draw.rect(screen, (200, 200, 200), button_rect)
     text = font.render("Map", True, (0, 0, 0))
     screen.blit(text, text.get_rect(center=button_rect.center))
     return button_rect
 
+
 def draw_manual_mode_button(screen: pygame.Surface, font: pygame.font.Font) -> pygame.Rect:
+    """Draw a 'Manual Mode' button in the top-left corner."""
     button_rect = pygame.Rect(10, 10, 150, 40)
     pygame.draw.rect(screen, (200, 200, 200), button_rect)
     text = font.render("Manual Mode", True, (0, 0, 0))
     screen.blit(text, text.get_rect(center=button_rect.center))
     return button_rect
+
 
 def dropdown_map_selection(screen: pygame.Surface, font: pygame.font.Font) -> str:
     maps_folder = "maps"
@@ -89,13 +95,15 @@ def dropdown_map_selection(screen: pygame.Surface, font: pygame.font.Font) -> st
         overlay.fill((50, 50, 50))
         screen.blit(overlay, (0, 0))
         for i, map_file in enumerate(map_files):
-            option_rect = pygame.Rect(dropdown_rect.left, dropdown_rect.top + i * item_height, dropdown_rect.width, item_height)
+            option_rect = pygame.Rect(dropdown_rect.left, dropdown_rect.top + i * item_height, dropdown_rect.width,
+                                      item_height)
             pygame.draw.rect(screen, (220, 220, 220), option_rect)
             text = font.render(map_file, True, (0, 0, 0))
             screen.blit(text, text.get_rect(center=option_rect.center))
         pygame.display.flip()
         clock.tick(60)
     return selected_map
+
 
 def drag_and_drop_starting_position(screen: pygame.Surface, info_font: pygame.font.Font,
                                     collision_mask: pygame.mask.Mask, display_map: pygame.Surface) -> List[float]:
@@ -141,6 +149,7 @@ def drag_and_drop_starting_position(screen: pygame.Surface, info_font: pygame.fo
         clock.tick(60)
     return drag_car.pos.copy()
 
+
 def run_car(genomes, config) -> None:
     if not hasattr(run_car, "global_map_path"):
         run_car.global_map_path = None
@@ -177,9 +186,13 @@ def run_car(genomes, config) -> None:
         genome.fitness = 0
         cars.append(Car(initial_pos=run_car.starting_position.copy()))
 
+    # Initialize sensors so that get_data() returns 8 inputs immediately.
+    for car in cars:
+        car.update(display_map, collision_mask)
+
     run_car.generation += 1
 
-    # Initialize camera offset variables.
+    # Initialize camera offset.
     offset_x, offset_y = 0, 0
 
     running = True
@@ -190,58 +203,35 @@ def run_car(genomes, config) -> None:
                 pygame.quit()
                 sys.exit()
 
-        # Update sensor data for each car.
-        for car in cars:
-            if car.get_alive():
-                car.update(display_map, collision_mask)
-
-        # Process neural network outputs with smoothing for both speed and turning.
+        remaining_cars = 0
+        # Process each alive car once per frame.
         for index, car in enumerate(cars):
             if car.get_alive():
                 output = nets[index].activate(car.get_data())
-                max_steering_change = 10
 
-                # Smoothing for turning:
+                # Update turning.
+                max_steering_change = 15
                 if not hasattr(car, "angular_velocity"):
                     car.angular_velocity = 0
                 desired_turn = output[0] * max_steering_change
-                smoothing_turn_factor = 0.1  # adjust for smoother turning (lower = smoother)
+                smoothing_turn_factor = 0.2
                 car.angular_velocity += smoothing_turn_factor * (desired_turn - car.angular_velocity)
                 car.angle += car.angular_velocity
 
-                # Smoothing for speed:
+                # Update speed.
                 throttle_output = output[1]
                 min_speed = 10
                 max_speed = 15
                 desired_speed = min_speed + ((throttle_output + 1) / 2) * (max_speed - min_speed)
-                smoothing_speed_factor = 0.1  # adjust for smoother acceleration/deceleration
+                smoothing_speed_factor = 0.2
                 car.speed += smoothing_speed_factor * (desired_speed - car.speed)
 
-        remaining_cars = 0
-        for i, car in enumerate(cars):
-            if car.get_alive():
-                remaining_cars += 1
+                # Update car state.
                 car.update(display_map, collision_mask)
-                genomes[i][1].fitness += car.get_reward()
+                genomes[index][1].fitness += car.get_reward()
+                remaining_cars += 1
 
-        if remaining_cars == 0:
-            # When no car is alive, display only the map and a message for 500ms.
-            end_time = pygame.time.get_ticks() + 500
-            while pygame.time.get_ticks() < end_time:
-                for event in pygame.event.get():
-                    if event.type == pygame.QUIT:
-                        pygame.quit()
-                        sys.exit()
-                screen.fill((255, 255, 255))
-                camera_rect = pygame.Rect(offset_x, offset_y, SCREEN_WIDTH, SCREEN_HEIGHT)
-                screen.blit(display_map, (0, 0), camera_rect)
-                message = info_font.render("Generation Over", True, (0, 0, 0))
-                screen.blit(message, (SCREEN_WIDTH // 2 - message.get_width() // 2, 50))
-                pygame.display.flip()
-                clock.tick(60)
-            running = False
-
-        # Camera logic: center on the average position of alive cars.
+        # Camera: center on the average position of alive cars.
         alive_cars = [car for car in cars if car.get_alive()]
         if alive_cars:
             avg_center_x = sum(car.center[0] for car in alive_cars) / len(alive_cars)
@@ -251,10 +241,57 @@ def run_car(genomes, config) -> None:
 
         camera_rect = pygame.Rect(offset_x, offset_y, SCREEN_WIDTH, SCREEN_HEIGHT)
         screen.blit(display_map, (0, 0), camera_rect)
-
         for car in cars:
             if car.get_alive():
                 car.draw(screen, info_font, offset=(offset_x, offset_y))
+
+        # --- Draw additional buttons ---
+        manual_button_rect = draw_manual_mode_button(screen, info_font)
+        map_button_rect = draw_map_button(screen, info_font)
+
+        # Check for button clicks.
+        if pygame.mouse.get_pressed()[0]:
+            mouse_pos = pygame.mouse.get_pos()
+            if manual_button_rect.collidepoint(mouse_pos):
+                # Switch to manual mode.
+                pygame.quit()
+                os.system('python manual.py')
+                sys.exit()
+            elif map_button_rect.collidepoint(mouse_pos):
+                # Allow user to change map.
+                new_map = dropdown_map_selection(screen, info_font)
+                if new_map:
+                    run_car.global_map_path = new_map
+                    try:
+                        display_map = pygame.image.load(new_map).convert_alpha()
+                    except Exception as e:
+                        print("Error loading map:", e)
+                        sys.exit(1)
+                    collision_map = pygame.image.load(new_map).convert_alpha()
+                    collision_map.set_colorkey(WHITE)
+                    collision_mask = pygame.mask.from_surface(collision_map)
+                    # Ask user to place the car on the new map.
+                    run_car.starting_position = drag_and_drop_starting_position(screen, info_font, collision_mask,
+                                                                                display_map)
+                    # Reinitialize all cars with the new starting position.
+                    for car in cars:
+                        car.pos = run_car.starting_position.copy()
+                        car.center = [int(car.pos[0] + car.surface.get_width() / 2),
+                                      int(car.pos[1] + car.surface.get_height() / 2)]
+
+        # When all cars have crashed, freeze the final frame.
+        if remaining_cars == 0:
+            message = info_font.render("Generation Over", True, (0, 0, 0))
+            screen.blit(message, (SCREEN_WIDTH // 2 - message.get_width() // 2, 50))
+            pygame.display.flip()
+            final_time = pygame.time.get_ticks() + 500
+            while pygame.time.get_ticks() < final_time:
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        pygame.quit()
+                        sys.exit()
+                clock.tick(60)
+            break
 
         pygame.display.flip()
         clock.tick(60)

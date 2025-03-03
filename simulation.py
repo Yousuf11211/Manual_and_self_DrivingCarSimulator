@@ -6,6 +6,26 @@ from car import Car, SCREEN_WIDTH, SCREEN_HEIGHT, RADAR_MAX_LENGTH
 from typing import List
 
 WHITE = (255, 255, 255)
+CONSTANT_SPEED = 5  # Constant speed for all cars
+
+
+def get_sorted_map_files() -> List[str]:
+    maps_folder = "maps"
+    files = [f for f in os.listdir(maps_folder) if f.endswith('.png')]
+
+    def sort_key(filename: str):
+        base, _ = os.path.splitext(filename)
+        if base == "map":
+            return 0
+        elif base.startswith("map"):
+            try:
+                return int(base[3:])
+            except:
+                return float('inf')
+        else:
+            return float('inf')
+
+    return sorted(files, key=sort_key)
 
 
 def select_map(screen: pygame.Surface, font: pygame.font.Font) -> str:
@@ -13,14 +33,21 @@ def select_map(screen: pygame.Surface, font: pygame.font.Font) -> str:
     if not os.path.exists(maps_folder):
         print("Error: 'maps' folder not found.")
         sys.exit(1)
-    map_files = [f for f in os.listdir(maps_folder) if f.endswith('.png')]
+    map_files = get_sorted_map_files()
     if not map_files:
         print("Error: No map files found in the 'maps' folder.")
         sys.exit(1)
     selected_index = 0
+
+    # Preview box dimensions and position (to the right of the list)
+    preview_width = 300
+    preview_height = 200
+    preview_x = 250  # list is drawn starting at x=50; preview appears at x=250
+    preview_y = 100
+
     selecting = True
     while selecting:
-        screen.fill((255, 255, 255))
+        screen.fill(WHITE)
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
@@ -32,27 +59,49 @@ def select_map(screen: pygame.Surface, font: pygame.font.Font) -> str:
                     selected_index = (selected_index + 1) % len(map_files)
                 elif event.key == pygame.K_RETURN:
                     selecting = False
+
         title_text = font.render("Select a Map:", True, (0, 0, 0))
         screen.blit(title_text, (50, 50))
+        # Draw the selection list.
         for i, map_file in enumerate(map_files):
+            base, _ = os.path.splitext(map_file)
+            label = base.capitalize()  # e.g., "Map", "Map1", "Map2"
             color = (255, 0, 0) if i == selected_index else (0, 0, 0)
-            text = font.render(map_file, True, color)
+            text = font.render(label, True, color)
             screen.blit(text, (50, 100 + i * 30))
+
+        # Draw preview box border.
+        pygame.draw.rect(screen, (0, 0, 0), (preview_x - 5, preview_y - 5, preview_width + 10, preview_height + 10), 2)
+        # Load and display preview image.
+        try:
+            preview_image = pygame.image.load(os.path.join(maps_folder, map_files[selected_index])).convert_alpha()
+            preview_image = pygame.transform.scale(preview_image, (preview_width, preview_height))
+            screen.blit(preview_image, (preview_x, preview_y))
+        except Exception as e:
+            pass
+
         pygame.display.flip()
     return os.path.join(maps_folder, map_files[selected_index])
 
 
 def draw_map_button(screen: pygame.Surface, font: pygame.font.Font) -> pygame.Rect:
-    """Draw a 'Map' button in the top-right corner."""
+    """Draw a button that displays the current map's label in the top-right corner."""
     button_rect = pygame.Rect(SCREEN_WIDTH - 110, 10, 100, 40)
     pygame.draw.rect(screen, (200, 200, 200), button_rect)
-    text = font.render("Map", True, (0, 0, 0))
+    maps_folder = "maps"
+    map_files = get_sorted_map_files()
+    if hasattr(run_car, "global_map_path") and run_car.global_map_path:
+        current_map = os.path.basename(run_car.global_map_path)
+    else:
+        current_map = map_files[0]
+    base, _ = os.path.splitext(current_map)
+    label = base.capitalize()
+    text = font.render(label, True, (0, 0, 0))
     screen.blit(text, text.get_rect(center=button_rect.center))
     return button_rect
 
 
 def draw_manual_mode_button(screen: pygame.Surface, font: pygame.font.Font) -> pygame.Rect:
-    """Draw a 'Manual Mode' button in the top-left corner."""
     button_rect = pygame.Rect(10, 10, 150, 40)
     pygame.draw.rect(screen, (200, 200, 200), button_rect)
     text = font.render("Manual Mode", True, (0, 0, 0))
@@ -65,24 +114,32 @@ def dropdown_map_selection(screen: pygame.Surface, font: pygame.font.Font) -> st
     if not os.path.exists(maps_folder):
         print("Error: 'maps' folder not found.")
         sys.exit(1)
-    map_files = [f for f in os.listdir(maps_folder) if f.endswith('.png')]
+    map_files = get_sorted_map_files()
     if not map_files:
         print("Error: No map files found in the 'maps' folder.")
         sys.exit(1)
+
     button_rect = pygame.Rect(SCREEN_WIDTH - 110, 10, 100, 40)
     item_height = 30
     dropdown_rect = pygame.Rect(button_rect.left, button_rect.bottom, button_rect.width, item_height * len(map_files))
+
+    # For dropdown, we want the preview to appear to the left of the dropdown list.
+    preview_width = 300
+    preview_height = 200
+    preview_x = dropdown_rect.left - preview_width - 20  # preview on left side of list
+    preview_y = dropdown_rect.top
+
     dropdown_active = True
     selected_map = None
     clock = pygame.time.Clock()
     while dropdown_active:
-        screen.fill((255, 255, 255))
+        screen.fill(WHITE)
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
             elif event.type == pygame.MOUSEBUTTONDOWN:
-                mouse_pos = event.pos
+                mouse_pos = pygame.mouse.get_pos()
                 if dropdown_rect.collidepoint(mouse_pos):
                     index = (mouse_pos[1] - dropdown_rect.top) // item_height
                     if 0 <= index < len(map_files):
@@ -90,16 +147,37 @@ def dropdown_map_selection(screen: pygame.Surface, font: pygame.font.Font) -> st
                         dropdown_active = False
                 else:
                     dropdown_active = False
+
         overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
         overlay.set_alpha(180)
         overlay.fill((50, 50, 50))
         screen.blit(overlay, (0, 0))
+        # Draw dropdown options.
         for i, map_file in enumerate(map_files):
+            base, _ = os.path.splitext(map_file)
+            label = base.capitalize()
             option_rect = pygame.Rect(dropdown_rect.left, dropdown_rect.top + i * item_height, dropdown_rect.width,
                                       item_height)
             pygame.draw.rect(screen, (220, 220, 220), option_rect)
-            text = font.render(map_file, True, (0, 0, 0))
+            text = font.render(label, True, (0, 0, 0))
             screen.blit(text, text.get_rect(center=option_rect.center))
+
+        # Draw preview box to the left of the dropdown list.
+        pygame.draw.rect(screen, (0, 0, 0), (preview_x - 5, preview_y - 5, preview_width + 10, preview_height + 10), 2)
+        # Determine which option is hovered over for preview.
+        mouse_pos = pygame.mouse.get_pos()
+        selected_index = 0
+        if dropdown_rect.collidepoint(mouse_pos):
+            selected_index = (mouse_pos[1] - dropdown_rect.top) // item_height
+            if selected_index >= len(map_files):
+                selected_index = len(map_files) - 1
+        try:
+            preview_image = pygame.image.load(os.path.join(maps_folder, map_files[selected_index])).convert_alpha()
+            preview_image = pygame.transform.scale(preview_image, (preview_width, preview_height))
+            screen.blit(preview_image, (preview_x, preview_y))
+        except Exception as e:
+            pass
+
         pygame.display.flip()
         clock.tick(60)
     return selected_map
@@ -114,7 +192,7 @@ def drag_and_drop_starting_position(screen: pygame.Surface, info_font: pygame.fo
     message = ""
     clock = pygame.time.Clock()
     while not valid_drop:
-        screen.fill((255, 255, 255))
+        screen.fill(WHITE)
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
@@ -186,52 +264,51 @@ def run_car(genomes, config) -> None:
         genome.fitness = 0
         cars.append(Car(initial_pos=run_car.starting_position.copy()))
 
-    # Initialize sensors so that get_data() returns 8 inputs immediately.
     for car in cars:
         car.update(display_map, collision_mask)
 
     run_car.generation += 1
 
-    # Initialize camera offset.
+    simulation_fps = 240  # Higher FPS for faster simulation
     offset_x, offset_y = 0, 0
-
     running = True
     while running:
-        screen.fill((255, 255, 255))
+        screen.fill(WHITE)
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
 
         remaining_cars = 0
-        # Process each alive car once per frame.
         for index, car in enumerate(cars):
             if car.get_alive():
-                output = nets[index].activate(car.get_data())
+                radar_data = car.get_data()  # 7 sensor distances + constant speed (1.0)
+                output = nets[index].activate(radar_data)
 
-                # Update turning.
+                # --- Smooth Steering ---
                 max_steering_change = 15
                 if not hasattr(car, "angular_velocity"):
                     car.angular_velocity = 0
                 desired_turn = output[0] * max_steering_change
-                smoothing_turn_factor = 0.2
+                smoothing_turn_factor = 0.1
                 car.angular_velocity += smoothing_turn_factor * (desired_turn - car.angular_velocity)
                 car.angle += car.angular_velocity
 
-                # Update speed.
-                throttle_output = output[1]
-                min_speed = 10
-                max_speed = 15
-                desired_speed = min_speed + ((throttle_output + 1) / 2) * (max_speed - min_speed)
-                smoothing_speed_factor = 0.2
-                car.speed += smoothing_speed_factor * (desired_speed - car.speed)
+                # --- Constant Speed ---
+                car.speed = CONSTANT_SPEED
 
-                # Update car state.
                 car.update(display_map, collision_mask)
-                genomes[index][1].fitness += car.get_reward()
+
+                # --- Enhanced Fitness Calculation ---
+                fitness_boost = car.get_reward() + (car.distance * 0.05)
+                if radar_data[0] > 50:
+                    fitness_boost += 0.1
+                if abs(car.angular_velocity) < 3:
+                    fitness_boost += 0.2
+                genomes[index][1].fitness += fitness_boost
+
                 remaining_cars += 1
 
-        # Camera: center on the average position of alive cars.
         alive_cars = [car for car in cars if car.get_alive()]
         if alive_cars:
             avg_center_x = sum(car.center[0] for car in alive_cars) / len(alive_cars)
@@ -245,20 +322,15 @@ def run_car(genomes, config) -> None:
             if car.get_alive():
                 car.draw(screen, info_font, offset=(offset_x, offset_y))
 
-        # --- Draw additional buttons ---
         manual_button_rect = draw_manual_mode_button(screen, info_font)
         map_button_rect = draw_map_button(screen, info_font)
-
-        # Check for button clicks.
         if pygame.mouse.get_pressed()[0]:
             mouse_pos = pygame.mouse.get_pos()
             if manual_button_rect.collidepoint(mouse_pos):
-                # Switch to manual mode.
                 pygame.quit()
                 os.system('python manual.py')
                 sys.exit()
             elif map_button_rect.collidepoint(mouse_pos):
-                # Allow user to change map.
                 new_map = dropdown_map_selection(screen, info_font)
                 if new_map:
                     run_car.global_map_path = new_map
@@ -270,28 +342,19 @@ def run_car(genomes, config) -> None:
                     collision_map = pygame.image.load(new_map).convert_alpha()
                     collision_map.set_colorkey(WHITE)
                     collision_mask = pygame.mask.from_surface(collision_map)
-                    # Ask user to place the car on the new map.
                     run_car.starting_position = drag_and_drop_starting_position(screen, info_font, collision_mask,
                                                                                 display_map)
-                    # Reinitialize all cars with the new starting position.
                     for car in cars:
                         car.pos = run_car.starting_position.copy()
                         car.center = [int(car.pos[0] + car.surface.get_width() / 2),
                                       int(car.pos[1] + car.surface.get_height() / 2)]
 
-        # When all cars have crashed, freeze the final frame.
         if remaining_cars == 0:
             message = info_font.render("Generation Over", True, (0, 0, 0))
             screen.blit(message, (SCREEN_WIDTH // 2 - message.get_width() // 2, 50))
             pygame.display.flip()
-            final_time = pygame.time.get_ticks() + 500
-            while pygame.time.get_ticks() < final_time:
-                for event in pygame.event.get():
-                    if event.type == pygame.QUIT:
-                        pygame.quit()
-                        sys.exit()
-                clock.tick(60)
+            pygame.time.wait(500)
             break
 
         pygame.display.flip()
-        clock.tick(60)
+        clock.tick(simulation_fps)

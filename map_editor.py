@@ -31,10 +31,10 @@ clock = pygame.time.Clock()
 pygame.event.set_grab(True)
 
 # Global drawing data (all stored in world coordinates)
-points = []  # Raw centerline points drawn by the user.
+points = []         # Raw centerline points drawn by the user.
 preview_curve = []  # Smoothed centerline.
-trees_left = []  # Trees on the left side.
-trees_right = []  # Trees on the right side.
+trees_left = []     # Trees on the left side.
+trees_right = []    # Trees on the right side.
 
 # Car starting position (world coordinate)
 CAR_START_POS = (700, 700)
@@ -42,7 +42,7 @@ CAR_START_POS = (700, 700)
 # Camera settings for infinite canvas
 camera_offset = [0, 0]  # (x, y) offset in world coordinates
 CAMERA_EDGE_MARGIN = 100  # Margin (in screen pixels) within which camera will pan
-CAMERA_PAN_SPEED = 5  # Maximum pan speed (pixels per frame)
+CAMERA_PAN_SPEED = 5      # Maximum pan speed (pixels per frame)
 
 
 def world_to_screen(point):
@@ -157,6 +157,7 @@ def save_map(curve, left_trees, right_trees):
     Save the entire drawn map to an image file.
     This version computes the bounding box that encloses the entire map and
     renders everything onto a new surface of that size.
+    The file is saved with an automatically incremented filename based on existing maps.
     """
     if not curve:
         return
@@ -201,7 +202,27 @@ def save_map(curve, left_trees, right_trees):
     maps_dir = os.path.join(script_dir, "maps")
     if not os.path.exists(maps_dir):
         os.makedirs(maps_dir)
-    file_path = os.path.join(maps_dir, "map19.png")
+
+    # Determine next available file name.
+    existing_files = os.listdir(maps_dir)
+    numbers = []
+    for f in existing_files:
+        if f.startswith("map") and f.endswith(".png"):
+            num_part = f[3:-4]  # Extract the number part; for "map.png" this will be an empty string.
+            if num_part == "":
+                numbers.append(0)
+            else:
+                try:
+                    numbers.append(int(num_part))
+                except ValueError:
+                    pass
+    next_number = max(numbers) + 1 if numbers else 0
+    if next_number == 0:
+        file_name = "map.png"
+    else:
+        file_name = f"map{next_number}.png"
+
+    file_path = os.path.join(maps_dir, file_name)
     img.save(file_path)
     print(f"Map saved as {file_path}")
 

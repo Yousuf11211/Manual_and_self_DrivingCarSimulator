@@ -32,8 +32,8 @@ def main():
         print("Error loading map image:", e)
         sys.exit(1)
     collision_map = pygame.image.load(global_map_path).convert_alpha()
-    WHITE = (255, 255, 255)
-    collision_map.set_colorkey(WHITE)
+    Lightgreen = (144, 238, 144)
+    collision_map.set_colorkey(Lightgreen)
     collision_mask = pygame.mask.from_surface(collision_map)
 
     # Drag-and-drop starting position.
@@ -58,7 +58,7 @@ def main():
     running = True
     while running:
         # Clear screen.
-        screen.fill((255, 255, 255))
+        screen.fill((144, 238, 144))
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
@@ -132,7 +132,7 @@ def main():
                         print("Error loading map image:", e)
                         sys.exit(1)
                     collision_map = pygame.image.load(global_map_path).convert_alpha()
-                    collision_map.set_colorkey(WHITE)
+                    collision_map.set_colorkey(Lightgreen)
                     collision_mask = pygame.mask.from_surface(collision_map)
                     starting_position = drag_and_drop_starting_position(screen, info_font, collision_mask, display_map)
                     car.pos = starting_position.copy()

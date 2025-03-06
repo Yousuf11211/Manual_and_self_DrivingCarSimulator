@@ -5,7 +5,7 @@ import os
 from car import Car, SCREEN_WIDTH, SCREEN_HEIGHT, RADAR_MAX_LENGTH
 from typing import List
 
-WHITE = (255, 255, 255)
+LightGreen = (144, 238, 144)
 CONSTANT_SPEED = 5  # Constant speed for all cars
 
 
@@ -47,7 +47,7 @@ def select_map(screen: pygame.Surface, font: pygame.font.Font) -> str:
 
     selecting = True
     while selecting:
-        screen.fill(WHITE)
+        screen.fill(LightGreen)
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
@@ -133,7 +133,7 @@ def dropdown_map_selection(screen: pygame.Surface, font: pygame.font.Font) -> st
     selected_map = None
     clock = pygame.time.Clock()
     while dropdown_active:
-        screen.fill(WHITE)
+        screen.fill(LightGreen)
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
@@ -192,7 +192,7 @@ def drag_and_drop_starting_position(screen: pygame.Surface, info_font: pygame.fo
     message = ""
     clock = pygame.time.Clock()
     while not valid_drop:
-        screen.fill(WHITE)
+        screen.fill(LightGreen)
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
@@ -250,7 +250,7 @@ def run_car(genomes, config) -> None:
         print(f"Error loading map image: {e}")
         sys.exit(1)
     collision_map = pygame.image.load(run_car.global_map_path).convert_alpha()
-    collision_map.set_colorkey(WHITE)
+    collision_map.set_colorkey(LightGreen)
     collision_mask = pygame.mask.from_surface(collision_map)
 
     if run_car.starting_position is None:
@@ -273,7 +273,7 @@ def run_car(genomes, config) -> None:
     offset_x, offset_y = 0, 0
     running = True
     while running:
-        screen.fill(WHITE)
+        screen.fill(LightGreen)
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
@@ -340,7 +340,7 @@ def run_car(genomes, config) -> None:
                         print("Error loading map:", e)
                         sys.exit(1)
                     collision_map = pygame.image.load(new_map).convert_alpha()
-                    collision_map.set_colorkey(WHITE)
+                    collision_map.set_colorkey(LightGreen)
                     collision_mask = pygame.mask.from_surface(collision_map)
                     run_car.starting_position = drag_and_drop_starting_position(screen, info_font, collision_mask,
                                                                                 display_map)

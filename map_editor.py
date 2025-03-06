@@ -16,7 +16,7 @@ SNAP_DISTANCE = 10  # Minimum distance between successive points
 CLOSE_THRESHOLD = 20  # Distance threshold to snap the end to the start and close the track
 
 # Colors
-WHITE = (255, 255, 255)
+WHITE = (144, 238, 144)
 BLACK = (0, 0, 0)
 YELLOW = (255, 255, 0)
 GREEN = (34, 139, 34)  # Tree color
@@ -42,7 +42,7 @@ CAR_START_POS = (700, 700)
 # Camera settings for infinite canvas
 camera_offset = [0, 0]  # (x, y) offset in world coordinates
 CAMERA_EDGE_MARGIN = 100  # Margin (in screen pixels) within which camera will pan
-CAMERA_PAN_SPEED = 5      # Maximum pan speed (pixels per frame)
+CAMERA_PAN_SPEED = 60      # Maximum pan speed (pixels per frame)
 
 
 def world_to_screen(point):

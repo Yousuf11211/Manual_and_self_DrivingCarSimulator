@@ -8,7 +8,13 @@ from button import Button
 
 
 # Define a light green color for the background.
+# LightGreen = (144, 238, 144)
+
 LightGreen = (144, 238, 144)
+Black = (0, 0, 0)
+Red = (255, 0, 0)
+White = (255, 255, 255)
+HighlightColor = (200, 0, 0)  # Darker red for selection highlight
 # Set a constant speed for all cars during simulation.
 CONSTANT_SPEED = 5
 
@@ -41,8 +47,8 @@ def get_sorted_map_files() -> List[str]:
 
 def select_map(screen: pygame.Surface, font: pygame.font.Font) -> str:
     """
-    Let the user select a map using the keyboard arrow keys and Enter.
-    Displays a list of map files along with a preview of the selected map.
+    Let the user select a map using keyboard arrow keys or mouse hover/click.
+    Displays a list of map files along with a preview of the selected map using a styled interface.
     Returns the full path of the selected map.
     """
     maps_folder = "maps"
@@ -55,43 +61,52 @@ def select_map(screen: pygame.Surface, font: pygame.font.Font) -> str:
         sys.exit(1)
     selected_index = 0
 
-    # Preview box dimensions and position.
+    # Option styling parameters.
+    option_width = 200
+    option_height = 35
+    option_x = 50
+    option_y = 120
+    option_spacing = 10
+
+    # Preview box dimensions and position (to the right of the options list).
     preview_width = 300
     preview_height = 200
-    preview_x = 250  # x position for the preview box
-    preview_y = 100  # y position for the preview box
+    preview_x = option_x + option_width + 50  # 50-pixel gap between list and preview
+    preview_y = option_y
 
     selecting = True
+    clock = pygame.time.Clock()
+
     while selecting:
         screen.fill(LightGreen)
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
-            elif event.type == pygame.KEYDOWN:
-                # Use UP and DOWN arrow keys to change selection.
-                if event.key == pygame.K_UP:
-                    selected_index = (selected_index - 1) % len(map_files)
-                elif event.key == pygame.K_DOWN:
-                    selected_index = (selected_index + 1) % len(map_files)
-                elif event.key == pygame.K_RETURN:
-                    # Press Enter to confirm selection.
-                    selecting = False
 
         # Draw the title.
         title_text = font.render("Select a Map:", True, (0, 0, 0))
-        screen.blit(title_text, (50, 50))
-        # Draw the list of map options.
+        screen.blit(title_text, (option_x, option_y - 50))
+
+        # Get the current mouse position.
+        mouse_pos = pygame.mouse.get_pos()
+
+        # Draw each map option as a styled box.
         for i, map_file in enumerate(map_files):
             base, _ = os.path.splitext(map_file)
             label = base.capitalize()  # e.g., "Map", "Map1", "Map2"
-            # Highlight the currently selected map in red.
-            color = (255, 0, 0) if i == selected_index else (0, 0, 0)
-            text = font.render(label, True, color)
-            screen.blit(text, (50, 100 + i * 30))
+            rect = pygame.Rect(option_x, option_y + i * (option_height + option_spacing),
+                               option_width, option_height)
+            # Update selection based on mouse hover.
+            if rect.collidepoint(mouse_pos):
+                selected_index = i
+            # Highlight the selected option.
+            if i == selected_index:
+                pygame.draw.rect(screen, (255, 0, 0), rect, border_radius=8)
+                option_text = font.render(label, True, White)
+            else:
+                pygame.draw.rect(screen, (240, 240, 240), rect, border_radius=8)
+                option_text = font.render(label, True, Black)
+            screen.blit(option_text, option_text.get_rect(center=rect.center))
 
         # Draw the preview box border.
-        pygame.draw.rect(screen, (0, 0, 0), (preview_x - 5, preview_y - 5, preview_width + 10, preview_height + 10), 2)
+        pygame.draw.rect(screen, Black, (preview_x - 5, preview_y - 5, preview_width + 10, preview_height + 10), 2)
         # Load and display the preview image for the selected map.
         try:
             preview_image = pygame.image.load(os.path.join(maps_folder, map_files[selected_index])).convert_alpha()
@@ -101,7 +116,32 @@ def select_map(screen: pygame.Surface, font: pygame.font.Font) -> str:
             pass
 
         pygame.display.flip()
+
+        # Event handling.
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_UP:
+                    selected_index = (selected_index - 1) % len(map_files)
+                elif event.key == pygame.K_DOWN:
+                    selected_index = (selected_index + 1) % len(map_files)
+                elif event.key == pygame.K_RETURN:
+                    selecting = False
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                # On mouse click, if the click is within any option, select it.
+                for i in range(len(map_files)):
+                    rect = pygame.Rect(option_x, option_y + i * (option_height + option_spacing),
+                                       option_width, option_height)
+                    if rect.collidepoint(event.pos):
+                        selected_index = i
+                        selecting = False
+                        break
+
+        clock.tick(60)
     return os.path.join(maps_folder, map_files[selected_index])
+
 
 
 def draw_map_button(screen: pygame.Surface, font: pygame.font.Font) -> pygame.Rect:
@@ -172,8 +212,11 @@ def draw_manual_mode_button(screen: pygame.Surface, font: pygame.font.Font) -> p
 
 def dropdown_map_selection(screen: pygame.Surface, font: pygame.font.Font) -> str:
     """
-    Display a dropdown list for map selection using Button objects.
-    The user can click an option to select a new map and a preview of the hovered map is shown.
+    Display a compact dropdown list for map selection using Button objects.
+    This appears as a small pop-up overlay near the map button (top-right corner),
+    rather than using the full screen like select_map().
+    The user can use keyboard arrow keys or mouse hover/click to select an option.
+    A preview of the hovered map is shown.
     Returns the full path of the selected map.
     """
     maps_folder = "maps"
@@ -185,121 +228,103 @@ def dropdown_map_selection(screen: pygame.Surface, font: pygame.font.Font) -> st
         print("Error: No map files found in the 'maps' folder.")
         sys.exit(1)
 
-    # Define the dropdown area based on the map button's position.
-    button_rect = pygame.Rect(SCREEN_WIDTH - 110, 10, 100, 40)
-    item_height = 30
-    dropdown_rect = pygame.Rect(button_rect.left, button_rect.bottom, button_rect.width, item_height * len(map_files))
+    selected_index = 0
 
-    # Set preview dimensions and position (to the left of the dropdown list).
+    # Define dropdown pop-up dimensions and position relative to the map button.
+    popup_width = 250     # Overall width of the pop-up
+    popup_height = 30 * len(map_files) + 20  # Option height 30 plus some padding
+    popup_x = SCREEN_WIDTH - popup_width - 20  # 20 pixels from the right edge
+    popup_y = 60  # Below the map button area (which is around y=10 to 50)
+
+    # Option styling inside the pop-up.
+    option_width = popup_width - 20  # Padding of 10 on each side
+    option_height = 30
+    option_spacing = 0
+    option_start_x = popup_x + 10
+    option_start_y = popup_y + 10
+
+    # Preview box dimensions and position (to the left of the pop-up).
     preview_width = 300
     preview_height = 200
-    preview_x = dropdown_rect.left - preview_width - 20  # Preview appears to the left.
-    preview_y = dropdown_rect.top
-
-    # Create Button objects for each map option.
-    option_buttons = []
-    for i, map_file in enumerate(map_files):
-        base, _ = os.path.splitext(map_file)
-        label = base.capitalize()
-        # For each button, calculate its center:
-        center_x = dropdown_rect.left + dropdown_rect.width // 2
-        center_y = dropdown_rect.top + i * item_height + item_height // 2
-
-        # Load and scale the button image to the size of (dropdown_rect.width, item_height)
-        original_image = pygame.image.load("assets/simulate.png")
-        scaled_image = pygame.transform.scale(original_image, (dropdown_rect.width, item_height))
-
-        btn = Button(
-            image=scaled_image,
-            pos=(center_x, center_y),
-            text_input=label,
-            font=font,
-            base_color="#d7fcd4",
-            hovering_color="White"
-        )
-        option_buttons.append(btn)
+    preview_x = popup_x - preview_width - 20
+    preview_y = popup_y
 
     dropdown_active = True
-    selected_map = None
     clock = pygame.time.Clock()
 
     while dropdown_active:
-        # Fill background (use your LightGreen color)
-        screen.fill(LightGreen)
-
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
-            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                mouse_pos = pygame.mouse.get_pos()
-                # Check if any option button is clicked.
-                for i, btn in enumerate(option_buttons):
-                    if btn.checkForInput(mouse_pos):
-                        selected_map = os.path.join(maps_folder, map_files[i])
-                        dropdown_active = False
-                        break
-                # If clicked outside all buttons, close the dropdown.
-                if not any(btn.rect.collidepoint(mouse_pos) for btn in option_buttons):
-                    dropdown_active = False
-
-        # Create a semi-transparent overlay for a modern look.
+        # Draw a semi-transparent overlay over the current screen.
         overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
-        overlay.fill((50, 50, 50, 180))  # RGBA, alpha 180 for semi-transparency
+        overlay.fill((0, 0, 0, 100))  # Dark with low alpha
         screen.blit(overlay, (0, 0))
 
-        # Draw the dropdown background with a rounded rectangle look.
-        # (You can use your own rounded_rect function if desired.)
-        pygame.draw.rect(screen, (240, 240, 240), dropdown_rect, border_radius=8)
-        pygame.draw.rect(screen, (0, 0, 0), dropdown_rect, 2, border_radius=8)
+        # Draw the pop-up background.
+        popup_rect = pygame.Rect(popup_x, popup_y, popup_width, popup_height)
+        pygame.draw.rect(screen, (240, 240, 240), popup_rect, border_radius=8)
+        pygame.draw.rect(screen, Black, popup_rect, 2, border_radius=8)
 
-        # Draw each option button.
-        for btn in option_buttons:
-            btn.changeColor(pygame.mouse.get_pos())
-            btn.update(screen)
-
-        # Draw a preview box for the hovered option.
-        preview_box_rect = pygame.Rect(preview_x - 5, preview_y - 5, preview_width + 10, preview_height + 10)
-        pygame.draw.rect(screen, (0, 0, 0), preview_box_rect, 2)
-
-        # Determine the hovered option (if any).
+        # Get current mouse position.
         mouse_pos = pygame.mouse.get_pos()
-        hovered_index = 0
-        for i, btn in enumerate(option_buttons):
-            if btn.rect.collidepoint(mouse_pos):
-                hovered_index = i
-                break
 
+        # Draw each map option as a separate box.
+        for i, map_file in enumerate(map_files):
+            base, _ = os.path.splitext(map_file)
+            label = base.capitalize()
+            rect = pygame.Rect(option_start_x, option_start_y + i * option_height,
+                               option_width, option_height)
+            # If mouse hovers over an option, update the selection.
+            if rect.collidepoint(mouse_pos):
+                selected_index = i
+            # Highlight the selected option.
+            if i == selected_index:
+                pygame.draw.rect(screen, (255, 0, 0), rect, border_radius=8)
+                option_text = font.render(label, True, White)
+            else:
+                pygame.draw.rect(screen, (240, 240, 240), rect, border_radius=8)
+                option_text = font.render(label, True, Black)
+            screen.blit(option_text, option_text.get_rect(center=rect.center))
+
+        # Draw the preview box for the hovered/selected option.
+        preview_box_rect = pygame.Rect(preview_x - 5, preview_y - 5, preview_width + 10, preview_height + 10)
+        pygame.draw.rect(screen, Black, preview_box_rect, 2)
         try:
-            preview_image = pygame.image.load(os.path.join(maps_folder, map_files[hovered_index])).convert_alpha()
+            preview_image = pygame.image.load(os.path.join(maps_folder, map_files[selected_index])).convert_alpha()
             preview_image = pygame.transform.scale(preview_image, (preview_width, preview_height))
             screen.blit(preview_image, (preview_x, preview_y))
         except Exception as e:
             pass
 
         pygame.display.flip()
+
+        # Event handling.
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            # Keyboard navigation.
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_UP:
+                    selected_index = (selected_index - 1) % len(map_files)
+                elif event.key == pygame.K_DOWN:
+                    selected_index = (selected_index + 1) % len(map_files)
+                elif event.key == pygame.K_RETURN:
+                    dropdown_active = False
+            # Mouse click selection.
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                for i in range(len(map_files)):
+                    rect = pygame.Rect(option_start_x, option_start_y + i * option_height,
+                                       option_width, option_height)
+                    if rect.collidepoint(event.pos):
+                        selected_index = i
+                        dropdown_active = False
+                        break
+                # Click outside pop-up closes the dropdown.
+                if not popup_rect.collidepoint(event.pos):
+                    dropdown_active = False
+
         clock.tick(60)
-    return selected_map
+    return os.path.join(maps_folder, map_files[selected_index])
 
-
-# Helper function that returns a sorted list of map filenames.
-def get_sorted_map_files() -> List[str]:
-    maps_folder = "maps"
-    files = [f for f in os.listdir(maps_folder) if f.endswith('.png')]
-
-    def sort_key(filename: str):
-        base, _ = os.path.splitext(filename)
-        if base == "map":
-            return 0
-        elif base.startswith("map"):
-            try:
-                return int(base[3:])
-            except:
-                return float('inf')
-        else:
-            return float('inf')
-
-    return sorted(files, key=sort_key)
 
 
 def drag_and_drop_starting_position(screen: pygame.Surface, info_font: pygame.font.Font,

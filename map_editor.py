@@ -1,6 +1,7 @@
 import pygame
 import os
 import math
+import json
 import random
 from pygame.locals import *
 from PIL import Image
@@ -52,8 +53,12 @@ def catmull_rom_spline(P, nPoints=100):
     def CR_point(p0, p1, p2, p3, t):
         t2 = t * t
         t3 = t2 * t
-        x = 0.5 * ((2 * p1[0]) + (-p0[0] + p2[0]) * t + (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t2 + (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * t3)
-        y = 0.5 * ((2 * p1[1]) + (-p0[1] + p2[1]) * t + (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2 + (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t3)
+        x = 0.5 * ((2 * p1[0]) + (-p0[0] + p2[0]) * t +
+                   (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t2 +
+                   (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * t3)
+        y = 0.5 * ((2 * p1[1]) + (-p0[1] + p2[1]) * t +
+                   (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2 +
+                   (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t3)
         return (x, y)
 
     spline_points = []
@@ -105,7 +110,9 @@ def draw_dashed_line(surface, color, points, dash_length, gap_length):
             seg_end_x = start[0] + dx * min(current_dash, seg_length - dist)
             seg_end_y = start[1] + dy * min(current_dash, seg_length - dist)
             if draw_dash:
-                pygame.draw.line(surface, color, (start[0] + dx * dist, start[1] + dy * dist), (seg_end_x, seg_end_y), 2)
+                pygame.draw.line(surface, color,
+                                 (start[0] + dx * dist, start[1] + dy * dist),
+                                 (seg_end_x, seg_end_y), 2)
             dist += current_dash
             draw_dash = not draw_dash
 
@@ -187,6 +194,21 @@ def save_map(curve, left_trees, right_trees):
     img.save(file_path)
     print(f"Map saved as {file_path}")
 
+    # Save metadata using transformed coordinates.
+    metadata = {
+        "start": world_to_map(curve[0]),
+        "finish": world_to_map(curve[-1]),
+    }
+    metadata_filename = os.path.splitext(file_name)[0] + "_metadata.json"
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    startfinish_dir = os.path.join(script_dir, "startfinish")
+    if not os.path.exists(startfinish_dir):
+        os.makedirs(startfinish_dir)
+    metadata_path = os.path.join(startfinish_dir, metadata_filename)
+    with open(metadata_path, "w") as f:
+        json.dump(metadata, f)
+    print(f"Map saved as {file_path} with metadata at {metadata_path}")
+
 def draw_curve(surface, curve):
     if len(curve) > 1:
         pygame.draw.lines(surface, GRAY, False, curve, 2)
@@ -204,7 +226,6 @@ def main():
 
     while running:
         screen.fill(WHITE)
-
         mouse_x, mouse_y = pygame.mouse.get_pos()
         if mouse_x < CAMERA_EDGE_MARGIN:
             pan_speed = (CAMERA_EDGE_MARGIN - mouse_x) / CAMERA_EDGE_MARGIN * CAMERA_PAN_SPEED
@@ -285,7 +306,6 @@ def main():
         else:
             instr = font.render("Hold left mouse button and drag to draw. Press E to exit.", True, BLACK)
             screen.blit(instr, (20, SCREEN_HEIGHT - 40))
-
 
         pygame.display.flip()
         clock.tick(60)

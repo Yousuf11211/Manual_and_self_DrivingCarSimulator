@@ -1,104 +1,98 @@
 import pygame
 import sys
 import os
+import math
+import argparse
+import json
 from car import Car, SCREEN_WIDTH, SCREEN_HEIGHT
-from simulation import (
-    drag_and_drop_starting_position,
-    draw_map_button,
-    dropdown_map_selection,
-    select_map
-)
+from simulation import drag_and_drop_starting_position, draw_map_button, dropdown_map_selection, select_map
 from button import Button
 
 
+def load_map_metadata(map_path):
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    metadata_dir = os.path.join(script_dir, "startfinish")
+    base_name = os.path.splitext(os.path.basename(map_path))[0]
+    metadata_filename = base_name + "_metadata.json"
+    metadata_path = os.path.join(metadata_dir, metadata_filename)
+    if os.path.exists(metadata_path):
+        with open(metadata_path, "r") as f:
+            return json.load(f)
+    return None
+
+
 def draw_switch_button(screen: pygame.Surface, font: pygame.font.Font) -> pygame.Rect:
-    """
-    Draws a button in the top-left corner to switch from manual to automatic mode.
-    Returns the button's rectangle area for mouse click detection.
-    """
-    # Load and scale the image to 150x40 pixels.
-    original_image = pygame.image.load("assets/simulate.png")
-    scaled_image = pygame.transform.scale(original_image, (150, 40))
-
-    # Since we want the button's top-left corner at (10, 10) and the Button class uses the center,
-    # calculate the center position: (10 + 150/2, 10 + 40/2) = (85, 30)
+    img = pygame.image.load("assets/simulate.png")
+    scaled_img = pygame.transform.scale(img, (150, 40))
     pos = (10 + 150 // 2, 10 + 40 // 2)
-
-    # Create the button with the label "Auto Mode".
-    auto_button = Button(
-        image=scaled_image,
-        pos=pos,
-        text_input="Auto Mode",
-        font=font,
-        base_color="#d7fcd4",  # Consistent base color
-        hovering_color="White"  # Consistent hovering color
-    )
-
-    # Draw the button on the screen.
-    auto_button.update(screen)
-
-    # Return the button's rectangle for mouse click detection.
-    return auto_button.rect
+    btn = Button(image=scaled_img, pos=pos, text_input="Auto Mode", font=font,
+                 base_color="#d7fcd4", hovering_color="White")
+    btn.update(screen)
+    return btn.rect
 
 
 def main():
-    """Main function to run the manual car control simulation."""
-    # Initialize pygame and create a window.
     pygame.init()
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     pygame.display.set_caption("Manual Car Control")
-    clock = pygame.time.Clock()  # Clock to control the frame rate.
-    info_font = pygame.font.SysFont("Arial", 30)  # Font used for on-screen text.
+    clock = pygame.time.Clock()
+    info_font = pygame.font.SysFont("Arial", 30)
 
-    # Select the map using a helper function and load the map image.
-    global_map_path = select_map(screen, info_font)
+    parser = argparse.ArgumentParser(description="Manual Car Simulation")
+    parser.add_argument('--map_path', type=str, default=None, help="Path to the map file")
+    args = parser.parse_args()
+
+    if args.map_path:
+        global_map_path = args.map_path
+    else:
+        global_map_path = select_map(screen, info_font)
+
     try:
-        # Load the display map for rendering.
         display_map = pygame.image.load(global_map_path).convert_alpha()
     except Exception as e:
         print("Error loading map image:", e)
         sys.exit(1)
 
-    # Load the collision map, set its colorkey and create a collision mask.
+    metadata = load_map_metadata(global_map_path)
+    finish_point = metadata["finish"] if (metadata and "finish" in metadata) else None
+
     collision_map = pygame.image.load(global_map_path).convert_alpha()
     Lightgreen = (144, 238, 144)
     collision_map.set_colorkey(Lightgreen)
     collision_mask = pygame.mask.from_surface(collision_map)
 
-    # Allow the user to choose a starting position by dragging and dropping on the map.
+    # Use drag-and-drop to choose the starting position once.
     starting_position = drag_and_drop_starting_position(screen, info_font, collision_mask, display_map)
+    initial_starting_position = starting_position.copy()
 
-    # Create a car object with the chosen starting position.
     car = Car(initial_pos=starting_position.copy())
     car.speed = 0
     car.angle = 0
 
-    # Define control parameters for the car's movement.
-    acceleration = 0.2  # How fast the car speeds up when moving forward.
-    brake_deceleration = 0.1  # How quickly the car slows down when braking.
-    friction = 0.01  # Natural deceleration when no key is pressed.
-    max_speed = 15  # Maximum forward speed.
-    max_reverse_speed = -10  # Maximum reverse speed.
-    angular_velocity = 0.0  # The current turning speed.
-    turning_acceleration = 0.2  # How quickly the car starts turning.
-    turning_deceleration = 0.1  # How quickly the turning slows down.
-    max_turning_rate = 5  # The maximum rate at which the car can turn.
+    collision_count = 0
+    start_time = pygame.time.get_ticks()
+
+    acceleration = 0.2
+    brake_deceleration = 0.1
+    friction = 0.01
+    max_speed = 15
+    max_reverse_speed = -10
+    angular_velocity = 0.0
+    turning_acceleration = 0.2
+    turning_deceleration = 0.1
+    max_turning_rate = 5
+    TRACK_WIDTH = 80  # For finish detection
 
     running = True
     while running:
-        # Fill the background with a light green color.
-        screen.fill((144, 238, 144))
-
-        # Process events such as quitting the game.
+        screen.fill(Lightgreen)
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                pygame.quit()
+                pygame.quit();
                 sys.exit()
 
-        # Get the current state of all keyboard keys.
+        # Car controls
         keys = pygame.key.get_pressed()
-
-        # Handle forward (W key) and backward (S key) movement.
         if keys[pygame.K_w]:
             car.speed += acceleration
             if car.speed > max_speed:
@@ -111,92 +105,156 @@ def main():
             if car.speed < max_reverse_speed:
                 car.speed = max_reverse_speed
         else:
-            # Apply friction to gradually reduce the car's speed.
             if car.speed > 0:
                 car.speed = max(car.speed - friction, 0)
             elif car.speed < 0:
                 car.speed = min(car.speed + friction, 0)
 
-        # Handle turning with A (left) and D (right) keys.
         if keys[pygame.K_a]:
             angular_velocity += turning_acceleration
         elif keys[pygame.K_d]:
             angular_velocity -= turning_acceleration
         else:
-            # Gradually reduce the turning speed when no key is pressed.
             if angular_velocity > 0:
                 angular_velocity = max(angular_velocity - turning_deceleration, 0)
             elif angular_velocity < 0:
                 angular_velocity = min(angular_velocity + turning_deceleration, 0)
-
-        # Limit the angular velocity to the maximum turning rate.
         if angular_velocity > max_turning_rate:
             angular_velocity = max_turning_rate
         elif angular_velocity < -max_turning_rate:
             angular_velocity = -max_turning_rate
 
-        # Update the car's direction and position.
         car.angle += angular_velocity
         car.update(display_map, collision_mask)
-        # print(f"Car Position: {car.pos}, Speed: {car.speed}")
 
-        # Check for collisions. If the car has collided, show a message and reset.
+        # Draw the car with radar lines disabled.
+        offset_x = car.center[0] - SCREEN_WIDTH // 2
+        offset_y = car.center[1] - SCREEN_HEIGHT // 2
+        camera_rect = pygame.Rect(offset_x, offset_y, SCREEN_WIDTH, SCREEN_HEIGHT)
+        screen.blit(display_map, (0, 0), camera_rect)
+        car.draw(screen, info_font, offset=(offset_x, offset_y), draw_radars=False)
+
         if not car.get_alive():
+            collision_count += 1
             msg = info_font.render("Collision! Restarting...", True, (255, 0, 0))
             screen.blit(msg, (SCREEN_WIDTH // 2 - msg.get_width() // 2, SCREEN_HEIGHT // 2))
             pygame.display.flip()
             pygame.time.wait(1000)
-            car = Car(initial_pos=starting_position.copy())
+            car = Car(initial_pos=initial_starting_position.copy())
             car.speed = 0
             car.angle = 0
             angular_velocity = 0.0
 
-        # Camera logic: center the view on the car.
-        offset_x = car.center[0] - SCREEN_WIDTH // 2
-        offset_y = car.center[1] - SCREEN_HEIGHT // 2
-        camera_rect = pygame.Rect(offset_x, offset_y, SCREEN_WIDTH, SCREEN_HEIGHT)
-        # Draw the visible portion of the map.
-        screen.blit(display_map, (0, 0), camera_rect)
-
-        # Draw the car on the screen, adjusting for camera offset.
-        car.draw(screen, info_font, offset=(offset_x, offset_y), draw_radars=False)
-
-        # Draw the map selection button and the mode switch button.
         map_button_rect = draw_map_button(screen, info_font)
         switch_button_rect = draw_switch_button(screen, info_font)
 
-        # Handle mouse clicks on the buttons.
         if pygame.mouse.get_pressed()[0]:
             mouse_pos = pygame.mouse.get_pos()
-            # Check if the map button was clicked.
             if map_button_rect.collidepoint(mouse_pos):
                 new_map = dropdown_map_selection(screen, info_font)
                 if new_map:
                     global_map_path = new_map
                     try:
-                        display_map = pygame.image.load(global_map_path).convert_alpha()
+                        display_map = pygame.image.load(new_map).convert_alpha()
                     except Exception as e:
                         print("Error loading map image:", e)
                         sys.exit(1)
-                    # Reload the collision map for the new map.
-                    collision_map = pygame.image.load(global_map_path).convert_alpha()
+                    collision_map = pygame.image.load(new_map).convert_alpha()
                     collision_map.set_colorkey(Lightgreen)
                     collision_mask = pygame.mask.from_surface(collision_map)
-                    # Allow the user to set a new starting position on the new map.
+                    metadata = load_map_metadata(new_map)
+                    if metadata and "finish" in metadata:
+                        finish_point = metadata["finish"]
                     starting_position = drag_and_drop_starting_position(screen, info_font, collision_mask, display_map)
-                    car.pos = starting_position.copy()
-                    car.center = [
-                        int(car.pos[0] + car.surface.get_width() / 2),
-                        int(car.pos[1] + car.surface.get_height() / 2)
-                    ]
-            # Check if the switch button was clicked (to switch to automatic mode).
+                    initial_starting_position = starting_position.copy()
+                    car = Car(initial_pos=starting_position.copy())
+                    car.speed = 0
+                    car.angle = 0
+                    angular_velocity = 0.0
+                    collision_count = 0
+                    start_time = pygame.time.get_ticks()
             if switch_button_rect.collidepoint(mouse_pos):
-                pygame.quit()
-                os.system('python main.py')
+                pygame.quit();
+                os.system('python main.py');
                 sys.exit()
 
-        pygame.display.flip()  # Update the display
-        clock.tick(60)  # Limit the frame rate to 60 frames per second
+        if finish_point:
+            finish_rect = pygame.Rect(
+                finish_point[0] - TRACK_WIDTH // 2,
+                finish_point[1] - TRACK_WIDTH // 2,
+                TRACK_WIDTH,
+                TRACK_WIDTH
+            )
+            finish_rect_screen = finish_rect.move(-offset_x, -offset_y)
+            pygame.draw.rect(screen, (0, 0, 255), finish_rect_screen, 2)
+            if finish_rect.collidepoint(car.center):
+                total_time = (pygame.time.get_ticks() - start_time) / 1000.0
+                overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+                overlay.set_alpha(200)
+                overlay.fill((200, 200, 200))
+                screen.blit(overlay, (0, 0))
+                finish_msg = f"Finish reached in {total_time:.2f} sec with {collision_count} collisions"
+                msg_surface = info_font.render(finish_msg, True, (0, 0, 255))
+                screen.blit(msg_surface, (SCREEN_WIDTH // 2 - msg_surface.get_width() // 2, SCREEN_HEIGHT // 2 - 50))
+                retry_img = pygame.image.load("assets/simulate.png")
+                retry_img_scaled = pygame.transform.scale(retry_img, (100, 40))
+                retry_button = Button(image=retry_img_scaled, pos=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 50),
+                                      text_input="Retry", font=info_font,
+                                      base_color="#d7fcd4", hovering_color="White")
+                retry_button.update(screen)
+                map_button_rect = draw_map_button(screen, info_font)
+                switch_button_rect = draw_switch_button(screen, info_font)
+                pygame.display.flip()
+                waiting = True
+                while waiting:
+                    for event in pygame.event.get():
+                        if event.type == pygame.QUIT:
+                            pygame.quit();
+                            sys.exit()
+                        elif event.type == pygame.MOUSEBUTTONDOWN:
+                            pos = event.pos
+                            if retry_button.rect.collidepoint(pos):
+                                collision_count = 0
+                                start_time = pygame.time.get_ticks()
+                                car = Car(initial_pos=initial_starting_position.copy())
+                                car.speed = 0
+                                car.angle = 0
+                                angular_velocity = 0.0
+                                waiting = False
+                            elif map_button_rect.collidepoint(pos):
+                                new_map = dropdown_map_selection(screen, info_font)
+                                if new_map:
+                                    global_map_path = new_map
+                                    try:
+                                        display_map = pygame.image.load(new_map).convert_alpha()
+                                    except Exception as e:
+                                        print("Error loading map image:", e)
+                                        sys.exit(1)
+                                    collision_map = pygame.image.load(new_map).convert_alpha()
+                                    collision_map.set_colorkey(Lightgreen)
+                                    collision_mask = pygame.mask.from_surface(collision_map)
+                                    metadata = load_map_metadata(new_map)
+                                    if metadata and "finish" in metadata:
+                                        finish_point = metadata["finish"]
+                                    starting_position = drag_and_drop_starting_position(screen, info_font,
+                                                                                        collision_mask, display_map)
+                                    initial_starting_position = starting_position.copy()
+                                    car = Car(initial_pos=starting_position.copy())
+                                    car.speed = 0
+                                    car.angle = 0
+                                    angular_velocity = 0.0
+                                    collision_count = 0
+                                    start_time = pygame.time.get_ticks()
+                                    waiting = False
+                            elif switch_button_rect.collidepoint(pos):
+                                pygame.quit();
+                                os.system('python main.py');
+                                sys.exit()
+                    clock.tick(30)
+        pygame.display.flip()
+        clock.tick(60)
+
+    pygame.quit()
 
 
 if __name__ == "__main__":

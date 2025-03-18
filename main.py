@@ -3,20 +3,16 @@ import os
 import sys
 import argparse
 import pygame
-from simulation import run_car  # Your self-driving simulation function
-
-# Import your Button class
+from simulation import run_car, select_map  # Notice we import select_map from simulation.py
 from button import Button
 
 # Global screen dimensions
 SCREEN_WIDTH = 1500
 SCREEN_HEIGHT = 800
 
-
 def get_font(size):
     """Returns a font object from the assets folder."""
     return pygame.font.Font("assets/font.ttf", size)
-
 
 def splash_screen(screen, font):
     """Display a welcome screen and wait for any key press."""
@@ -38,7 +34,6 @@ def splash_screen(screen, font):
             elif event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
-
 
 def main_menu(screen, font):
     """Display a main menu with two mode selection buttons and a quit button below."""
@@ -103,9 +98,8 @@ def main_menu(screen, font):
 
         pygame.display.update()
 
-
 def main() -> None:
-    # First, set up argument parsing for NEAT (if needed)
+    # Set up argument parsing for NEAT (if needed)
     parser = argparse.ArgumentParser(description="NEAT Car Simulation")
     parser.add_argument('--generations', type=int, default=1000, help="Number of generations to run")
     args = parser.parse_args()
@@ -122,13 +116,15 @@ def main() -> None:
     # Show the main menu and get user selection
     mode = main_menu(screen, font)
 
-    # Depending on the selection, proceed accordingly:
     if mode == "manual":
-        # Launch manual driving mode (assuming you have a manual.py script)
-        os.system('python manual.py')
+        # Let the user select a map.
+        # The select_map function (from simulation.py) displays a map selection interface
+        global_map_path = select_map(screen, font)
+        # Launch manual driving mode, passing the selected map path as an argument.
+        # (Your manual.py code should be modified to accept a command-line argument --map_path.)
+        os.system(f'python manual.py --map_path "{global_map_path}"')
         sys.exit(0)
     else:  # "auto" selected
-        # Continue with the NEAT simulation (self driving mode)
         project_folder = os.path.dirname(os.path.abspath(__file__))
         config_path = os.path.join(project_folder, 'config.txt')
 
@@ -148,10 +144,8 @@ def main() -> None:
         population.add_reporter(neat.StdOutReporter(True))
         stats = neat.StatisticsReporter()
         population.add_reporter(stats)
-        population.add_reporter(neat.Checkpointer(10, filename_prefix="neat-checkpoint-"))
 
         population.run(run_car, args.generations)
-
 
 if __name__ == "__main__":
     main()

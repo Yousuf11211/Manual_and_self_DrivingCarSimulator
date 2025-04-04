@@ -20,8 +20,8 @@ class Car:
         self.pos: List[float] = initial_pos
 
         # Load the car image from the 'cars' folder and scale it to a fixed size.
-        self.surface = pygame.image.load(os.path.join("cars", "car.png"))
-        self.surface = pygame.transform.scale(self.surface, (70, 70))
+        self.surface = pygame.image.load(os.path.join("cars", "car4.png"))
+        self.surface = pygame.transform.scale(self.surface, (70, 60))
 
         # This surface will be updated with the rotated version of the car.
         self.rotate_surface = self.surface
@@ -51,26 +51,19 @@ class Car:
 
     def draw(self, screen: pygame.Surface, font: pygame.font.Font = None, offset: Tuple[int, int] = (0, 0),
              draw_radars: bool = True) -> None:
-        # Calculate the position to draw the car.
-        draw_pos = (self.pos[0] - offset[0], self.pos[1] - offset[1])
-        screen.blit(self.rotate_surface, draw_pos)
+        # Calculate the center with the offset.
+        center_with_offset = (self.center[0] - offset[0], self.center[1] - offset[1])
+        # Get the rect of the rotated image, centered on the car's center.
+        rotated_rect = self.rotate_surface.get_rect(center=center_with_offset)
+        screen.blit(self.rotate_surface, rotated_rect.topleft)
 
-        # Adjust the center position for drawing.
-        offset_center = (self.center[0] - offset[0], self.center[1] - offset[1])
-
-        # Draw sensor (radar) lines only if draw_radars is True.
+        # Optionally draw radars, etc.
         if draw_radars:
             for radar in self.radars:
                 radar_pos, _ = radar
                 offset_radar = (radar_pos[0] - offset[0], radar_pos[1] - offset[1])
-                pygame.draw.line(screen, (0, 255, 0), offset_center, offset_radar, 1)
-                pygame.draw.circle(screen, (0, 255, 0), offset_radar, 5)
-
-        # # Draw speed display if a font is provided.
-        # if font is not None:
-        #     speed_text = font.render("Speed: " + str(round(self.speed, 2)), True, (0, 0, 0))
-        #     text_rect = speed_text.get_rect(center=(draw_pos[0] + self.surface.get_width() / 2, draw_pos[1] - 10))
-        #     screen.blit(speed_text, text_rect)
+                pygame.draw.line(screen, (255, 0, 0), center_with_offset, offset_radar, 1)
+                pygame.draw.circle(screen, (255, 0, 0), offset_radar, 5)
 
     def check_collision(self, collision_mask: pygame.mask.Mask) -> None:
         """
@@ -214,17 +207,8 @@ class Car:
         return base_weight * base_reward + time_weight * time_reward + safety_weight * safety_reward
 
     def rot_center(self, image: pygame.Surface, angle: float) -> pygame.Surface:
-        """
-        Rotate an image while keeping its center.
-        This function rotates the image and then creates a new surface that
-        is correctly aligned with the original center.
-        """
-        # Get the original rectangle of the image.
-        orig_rect = image.get_rect()
-        # Rotate the image by the given angle.
+        # Rotate the image.
         rotated_image = pygame.transform.rotate(image, angle)
-        # Copy the original rectangle and set its center to the center of the rotated image.
-        rot_rect = orig_rect.copy()
-        rot_rect.center = rotated_image.get_rect().center
-        # Create a subsurface of the rotated image that corresponds to the original rectangle and return it.
-        return rotated_image.subsurface(rot_rect).copy()
+        return rotated_image
+
+

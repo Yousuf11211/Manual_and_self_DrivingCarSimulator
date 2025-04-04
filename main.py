@@ -3,7 +3,6 @@ import os
 import sys
 import argparse
 import pygame
-from simulation import run_car, select_map  # Notice we import select_map from simulation.py
 from button import Button
 
 # Global screen dimensions
@@ -117,14 +116,10 @@ def main() -> None:
     mode = main_menu(screen, font)
 
     if mode == "manual":
-        # Let the user select a map.
-        # The select_map function (from simulation.py) displays a map selection interface
-        global_map_path = select_map(screen, font)
-        # Launch manual driving mode, passing the selected map path as an argument.
-        # (Your manual.py code should be modified to accept a command-line argument --map_path.)
-        os.system(f'python manual.py --map_path "{global_map_path}"')
+        os.system('python manual.py')
         sys.exit(0)
-    else:  # "auto" selected
+    else:  # "auto" selected - launch self driving simulation
+        from selfdriving import run_auto_mode  # Import the self-driving mode function
         project_folder = os.path.dirname(os.path.abspath(__file__))
         config_path = os.path.join(project_folder, 'config.txt')
 
@@ -145,7 +140,7 @@ def main() -> None:
         stats = neat.StatisticsReporter()
         population.add_reporter(stats)
 
-        population.run(run_car, args.generations)
+        population.run(run_auto_mode, args.generations)
 
 if __name__ == "__main__":
     main()

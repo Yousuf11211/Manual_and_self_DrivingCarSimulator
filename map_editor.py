@@ -2,7 +2,6 @@ import pygame
 import os
 import math
 import json
-import random
 from pygame.locals import *
 from PIL import Image
 
@@ -44,7 +43,7 @@ CAMERA_EDGE_MARGIN = 100
 CAMERA_PAN_SPEED = 60
 
 def world_to_screen(point):
-    return (point[0] - camera_offset[0], point[1] - camera_offset[1])
+    return point[0] - camera_offset[0], point[1] - camera_offset[1]
 
 def catmull_rom_spline(P, nPoints=100):
     if len(P) < 4:

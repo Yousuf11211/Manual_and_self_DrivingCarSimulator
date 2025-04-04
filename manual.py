@@ -5,20 +5,18 @@ import math
 import argparse
 import json
 from car import Car, SCREEN_WIDTH, SCREEN_HEIGHT
-from simulation import drag_and_drop_starting_position, draw_map_button, dropdown_map_selection, select_map
 from button import Button
+from utils import (
+    get_sorted_map_files,
+    load_map_metadata,
+    select_map,
+    draw_map_button,
+    draw_manual_mode_button,
+    dropdown_map_selection,
+    drag_and_drop_starting_position,
+    LightGreen, Black, Red, White, CONSTANT_SPEED, TRACK_WIDTH
+)
 
-
-def load_map_metadata(map_path):
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    metadata_dir = os.path.join(script_dir, "startfinish")
-    base_name = os.path.splitext(os.path.basename(map_path))[0]
-    metadata_filename = base_name + "_metadata.json"
-    metadata_path = os.path.join(metadata_dir, metadata_filename)
-    if os.path.exists(metadata_path):
-        with open(metadata_path, "r") as f:
-            return json.load(f)
-    return None
 
 
 def draw_switch_button(screen: pygame.Surface, font: pygame.font.Font) -> pygame.Rect:

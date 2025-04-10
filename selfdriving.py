@@ -176,11 +176,11 @@ def run_auto_mode(genomes, config):
                     if car.get_alive() and finish_rect.collidepoint(car.center):
                         time_taken = (pygame.time.get_ticks() - generation_start_time) / 1000.0
                         simulation_paused = True
-                        print(f"✅ Finish reached in {time_taken:.2f} seconds.")
+                        print(f"Finish reached in {time_taken:.2f} seconds.")
                         break
 
             if remaining_cars == 0:
-                print("⚠️ All cars crashed. Moving to next generation...")
+                print("All cars crashed. Moving to next generation...")
                 run_auto_mode.last_gen_crashed = True
                 break
 
@@ -212,7 +212,7 @@ def run_auto_mode(genomes, config):
             overlay.set_alpha(180)
             overlay.fill((240, 240, 240))
             screen.blit(overlay, (0, 0))
-            msg = info_font.render("✅ Car reached the finish line!", True, (0, 0, 255))
+            msg = info_font.render("Car reached the finish line!", True, (0, 0, 255))
             screen.blit(msg, (SCREEN_WIDTH // 2 - msg.get_width() // 2, SCREEN_HEIGHT // 2 - 20))
 
         pygame.display.flip()

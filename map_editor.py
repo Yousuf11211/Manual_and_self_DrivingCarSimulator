@@ -5,7 +5,7 @@ import json
 from pygame.locals import *
 from PIL import Image
 
-# screen and road settings
+# screen setup
 SCREEN_WIDTH = 1500
 SCREEN_HEIGHT = 800
 ROAD_WIDTH = 80
@@ -22,30 +22,30 @@ YELLOW = (255, 255, 0)
 GREEN = (34, 139, 34)
 GRAY = (200, 200, 200)
 
-# setup screen
+# setup pygame screen
 pygame.init()
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("Map Editor")
 clock = pygame.time.Clock()
 pygame.event.set_grab(True)
 
-# data for road and objects
+# data lists
 points = []
 preview_curve = []
 trees_left = []
 trees_right = []
 CAR_START_POS = (700, 700)
 
-# camera scroll
+# camera variables
 camera_offset = [0, 0]
 CAMERA_EDGE_MARGIN = 100
 CAMERA_PAN_SPEED = 60
 
-# change world position to screen
+# convert world to screen
 def world_to_screen(point):
     return point[0] - camera_offset[0], point[1] - camera_offset[1]
 
-# smooth line drawing using spline
+# make smooth curve
 def catmull_rom_spline(P, nPoints=100):
     if len(P) < 4:
         return P
@@ -72,7 +72,7 @@ def catmull_rom_spline(P, nPoints=100):
     spline_points.append(P[-1])
     return spline_points
 
-# get side lines of the road
+# make edge of road
 def compute_offset_curve(curve, offset):
     offset_points = []
     for i in range(len(curve)):
@@ -93,7 +93,7 @@ def compute_offset_curve(curve, offset):
         offset_points.append((curve[i][0] + perp[0] * offset, curve[i][1] + perp[1] * offset))
     return offset_points
 
-# draw dashed yellow line
+# draw yellow dashed center line
 def draw_dashed_line(surface, color, points, dash_length, gap_length):
     if len(points) < 2:
         return
@@ -118,7 +118,7 @@ def draw_dashed_line(surface, color, points, dash_length, gap_length):
             dist += current_dash
             draw_dash = not draw_dash
 
-# add trees along the road
+# make trees on side
 def generate_trees(curve, side_offset, spacing=TREE_SPACING):
     offset_curve = compute_offset_curve(curve, side_offset)
     tree_positions = []
@@ -138,7 +138,7 @@ def generate_trees(curve, side_offset, spacing=TREE_SPACING):
         last_pos = pos
     return tree_positions
 
-# save the drawn map and trees
+# save map and trees
 def save_map(curve, left_trees, right_trees):
     if not curve:
         return
@@ -166,14 +166,12 @@ def save_map(curve, left_trees, right_trees):
     for tree in left_trees + right_trees:
         pygame.draw.circle(map_surface, GREEN, world_to_map(tree), 5)
 
-    # draw start and finish labels
     font_large = pygame.font.SysFont("Arial", 30)
     start_text = font_large.render("Start", True, YELLOW)
     finish_text = font_large.render("Finish", True, YELLOW)
     map_surface.blit(start_text, (world_to_map(curve[0])[0], world_to_map(curve[0])[1] - 40))
     map_surface.blit(finish_text, (world_to_map(curve[-1])[0], world_to_map(curve[-1])[1] - 40))
 
-    # save the map image
     map_data = pygame.image.tostring(map_surface, 'RGBA')
     img = Image.frombytes('RGBA', (width, height), map_data)
     maps_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "maps")
@@ -188,7 +186,6 @@ def save_map(curve, left_trees, right_trees):
     img.save(file_path)
     print(f"Map saved as {file_path}")
 
-    # also save metadata
     metadata = {
         "start": world_to_map(curve[0]),
         "finish": world_to_map(curve[-1]),
@@ -201,30 +198,29 @@ def save_map(curve, left_trees, right_trees):
         json.dump(metadata, f)
     print(f"Metadata saved as {metadata_path}")
 
-# draw help and curve
+# show the road lines
 def draw_curve(surface, curve):
     if len(curve) > 1:
         pygame.draw.lines(surface, GRAY, False, curve, 2)
         draw_dashed_line(surface, YELLOW, curve, DASH_LENGTH, GAP_LENGTH)
 
-# draw each point
+# show preview points
 def draw_preview_points(surface, pts):
     for p in pts:
         pygame.draw.circle(surface, GRAY, p, 5)
 
-# main loop
+# start the program
 def main():
     global points, preview_curve, trees_left, trees_right, camera_offset
     running = True
     drawing = False
     font = pygame.font.SysFont("Arial", 20)
 
-
     while running:
         screen.fill(LightGreen)
         mouse_x, mouse_y = pygame.mouse.get_pos()
 
-        # camera panning near edge
+        # move camera
         if mouse_x < CAMERA_EDGE_MARGIN:
             camera_offset[0] -= (CAMERA_EDGE_MARGIN - mouse_x) / CAMERA_EDGE_MARGIN * CAMERA_PAN_SPEED
         elif mouse_x > SCREEN_WIDTH - CAMERA_EDGE_MARGIN:
@@ -254,7 +250,7 @@ def main():
                 elif event.key == K_e:
                     running = False
 
-        # draw while holding mouse
+        # add points when mouse held
         if drawing:
             current_point = (mouse_x + camera_offset[0], mouse_y + camera_offset[1])
             if not points or math.hypot(current_point[0] - points[-1][0],
@@ -265,7 +261,7 @@ def main():
                 points.append(points[0])
                 drawing = False
 
-        # draw road and trees
+        # update preview and tree positions
         if len(points) >= 2:
             pts = points if len(points) >= 4 else [points[0]] + points + [points[-1]]
             preview_curve = catmull_rom_spline(pts, nPoints=30)
@@ -286,7 +282,6 @@ def main():
                 pygame.draw.circle(screen, GREEN, world_to_screen(tree), 5)
             draw_curve(screen, [world_to_screen(p) for p in preview_curve])
 
-            # labels
             font_large = pygame.font.SysFont("Arial", 30)
             screen.blit(font_large.render("Start", True, YELLOW), (world_to_screen(preview_curve[0])[0], world_to_screen(preview_curve[0])[1] - 40))
             screen.blit(font_large.render("Finish", True, YELLOW), (world_to_screen(preview_curve[-1])[0], world_to_screen(preview_curve[-1])[1] - 40))

@@ -10,21 +10,24 @@ RADAR_MAX_LENGTH = 300
 OFFSET_COLLISION = 30
 
 class Car:
-    def __init__(self, initial_pos: List[float] = None):
-        # starting position
+    def __init__(self, initial_pos: List[float] = None, surface: pygame.Surface = None) -> None:
+        # set starting position
         if initial_pos is None:
             initial_pos = [700, 650]
         self.pos = initial_pos
 
-        # load and resize the car image
-        self.surface = pygame.image.load(os.path.join("cars", "car4.png"))
-        self.surface = pygame.transform.scale(self.surface, (75, 75))
-        self.rotate_surface = self.surface
+        # load car image
+        if surface:
+            self.surface = surface
+        else:
+            self.surface = pygame.image.load(os.path.join("cars", "car4.png"))
+            self.surface = pygame.transform.scale(self.surface, (75, 75))
 
+        self.rotate_surface = self.surface
         self.angle = 0.0
         self.speed = 0.0
 
-        # center of the car
+        # center of car
         self.center = [
             int(self.pos[0] + self.surface.get_width() / 2),
             int(self.pos[1] + self.surface.get_height() / 2)
@@ -37,10 +40,12 @@ class Car:
         self.rotated_cache = {}
 
     def draw(self, screen, font=None, offset=(0, 0), draw_radars=True):
+        # draw car
         center_offset = (self.center[0] - offset[0], self.center[1] - offset[1])
         rotated_rect = self.rotate_surface.get_rect(center=center_offset)
         screen.blit(self.rotate_surface, rotated_rect.topleft)
 
+        # draw radars
         if draw_radars:
             for radar in self.radars:
                 radar_pos, _ = radar
@@ -49,6 +54,7 @@ class Car:
                 pygame.draw.circle(screen, (255, 0, 0), radar_pos, 5)
 
     def check_collision(self, collision_mask):
+        # check if car is on track
         self.is_alive = True
         mask_width, mask_height = collision_mask.get_size()
 
@@ -62,6 +68,7 @@ class Car:
                 break
 
     def check_radar(self, degree, collision_mask):
+        # draw radar lines
         ray_length = 0
         mask_width, mask_height = collision_mask.get_size()
 
@@ -81,6 +88,7 @@ class Car:
         self.radars.append(((x, y), distance))
 
     def update(self, game_map, collision_mask):
+        # update car rotation
         angle_key = int(round(self.angle)) % 360
         if angle_key in self.rotated_cache:
             self.rotate_surface = self.rotated_cache[angle_key]
@@ -88,17 +96,20 @@ class Car:
             self.rotate_surface = self.rot_center(self.surface, self.angle)
             self.rotated_cache[angle_key] = self.rotate_surface
 
+        # move car
         self.pos[0] += math.cos(math.radians(360 - self.angle)) * self.speed
         self.pos[1] += math.sin(math.radians(360 - self.angle)) * self.speed
 
         self.distance += self.speed
         self.time_spent += 1
 
+        # update center
         self.center = [
             int(self.pos[0] + self.surface.get_width() / 2),
             int(self.pos[1] + self.surface.get_height() / 2)
         ]
 
+        # get 4 corner points for collision
         offset = OFFSET_COLLISION
         left_top = [
             self.center[0] + math.cos(math.radians(360 - (self.angle + 30))) * offset,
@@ -118,20 +129,25 @@ class Car:
         ]
         self.four_points = [left_top, right_top, left_bottom, right_bottom]
 
+        # check if car hits anything
         self.check_collision(collision_mask)
 
+        # check all radar sensors
         self.radars.clear()
         for degree in range(-90, 91, 30):
             self.check_radar(degree, collision_mask)
 
     def get_data(self):
+        # return radar values
         sensors = [r[1] / RADAR_MAX_LENGTH for r in self.radars]
         return sensors + [1.0]
 
     def get_alive(self):
+        # return alive status
         return self.is_alive
 
     def get_reward(self):
+        # calculate reward score
         base_reward = self.distance / 50.0
         time_reward = self.time_spent / 100.0
         min_distance = min([r[1] for r in self.radars], default=0)
@@ -143,5 +159,6 @@ class Car:
         return base_reward + 0.5 * time_reward + 1.0 * safety_reward
 
     def rot_center(self, image, angle):
+        # rotate image with center
         rotated_image = pygame.transform.rotate(image, angle)
         return rotated_image

@@ -9,23 +9,16 @@ from utils import (
     select_map,
     dropdown_map_selection,
     drag_and_drop_starting_position,
-    LightGreen, Black, Red, White, CONSTANT_SPEED, TRACK_WIDTH
+    LightGreen, Black, Red, White, CONSTANT_SPEED, TRACK_WIDTH,
 )
+from changecar import change_car, get_car_images, car_scales, load_car
 
-car_images = [f for f in os.listdir("cars") if f.endswith(".png")]
+# Car image and scaling configuration
+car_images = get_car_images()
 car_index = 0
-car_scales = {
-    "car1.png": (75, 75),
-    "car2.png": (75, 75),
-    "car3.png": (75, 75),
-    "car5.png": (75, 75),
-    # Add all your actual image names here
-}
-
-
 
 def main():
-    global car_index, car_images  # 🔧 Tell Python to use the top-level ones
+    global car_index, car_images
 
     pygame.init()
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -33,7 +26,6 @@ def main():
     clock = pygame.time.Clock()
     info_font = pygame.font.SysFont("Arial", 30)
 
-    # pick map from command line or open selector
     parser = argparse.ArgumentParser(description="Manual Car Simulation")
     parser.add_argument('--map_path', type=str, default=None, help="Path to the map file")
     args = parser.parse_args()
@@ -43,7 +35,6 @@ def main():
     else:
         global_map_path = select_map(screen, info_font)
 
-    # load map and mask for collision
     display_map = pygame.image.load(global_map_path).convert_alpha()
     metadata = load_map_metadata(global_map_path)
     finish_point = metadata["finish"] if metadata and "finish" in metadata else None
@@ -52,11 +43,23 @@ def main():
     collision_map.set_colorkey(LightGreen)
     collision_mask = pygame.mask.from_surface(collision_map)
 
-    # set starting position
-    starting_position = drag_and_drop_starting_position(screen, info_font, collision_mask, display_map)
+    # Load initial car surface (first selected car)
+    car_image_name = car_images[car_index]
+    car_image_path = os.path.join("cars", car_image_name)
+    surface = pygame.image.load(car_image_path).convert_alpha()
+    scale_size = car_scales.get(car_image_name, (75, 75))
+    surface = pygame.transform.scale(surface, scale_size)
+    selected_surface = surface  # persist globally
+
+    # Use selected car for drag preview
+    drag_car = Car(initial_pos=[SCREEN_WIDTH // 2 - 35, SCREEN_HEIGHT // 2 - 30], surface=surface)
+    drag_car.center = [int(drag_car.pos[0] + drag_car.surface.get_width() / 2),
+                       int(drag_car.pos[1] + drag_car.surface.get_height() / 2)]
+
+    starting_position = drag_and_drop_starting_position(screen, info_font, collision_mask, display_map, drag_car)
     initial_starting_position = starting_position.copy()
 
-    car = Car(initial_pos=starting_position.copy())
+    car = Car(initial_pos=starting_position.copy(), surface=selected_surface)
     car.speed = 0
     car.angle = 0
     angular_velocity = 0.0
@@ -64,7 +67,7 @@ def main():
     collision_count = 0
     start_time = pygame.time.get_ticks()
 
-    # car motion values
+    # motion parameters
     acceleration = 0.2
     brake_deceleration = 0.1
     friction = 0.01
@@ -74,7 +77,7 @@ def main():
     turning_deceleration = 0.1
     max_turning_rate = 5
 
-    # top menu buttons
+    # top buttons
     button_width, button_height = 140, 40
     spacing = 20
     top_margin = 20
@@ -99,7 +102,6 @@ def main():
         screen.fill(LightGreen)
         mouse_pos = pygame.mouse.get_pos()
 
-        # handle events
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit(); sys.exit()
@@ -123,9 +125,24 @@ def main():
                         metadata = load_map_metadata(new_map)
                         if metadata and "finish" in metadata:
                             finish_point = metadata["finish"]
-                        starting_position = drag_and_drop_starting_position(screen, info_font, collision_mask, display_map)
+
+                        # Reload current car surface
+                        car_image_name = car_images[car_index]
+                        car_image_path = os.path.join("cars", car_image_name)
+                        surface = pygame.image.load(car_image_path).convert_alpha()
+                        scale_size = car_scales.get(car_image_name, (75, 75))
+                        surface = pygame.transform.scale(surface, scale_size)
+                        selected_surface = surface  # update globally
+
+                        drag_car = Car(initial_pos=[SCREEN_WIDTH // 2 - 35, SCREEN_HEIGHT // 2 - 30], surface=surface)
+                        drag_car.center = [int(drag_car.pos[0] + drag_car.surface.get_width() / 2),
+                                           int(drag_car.pos[1] + drag_car.surface.get_height() / 2)]
+
+                        starting_position = drag_and_drop_starting_position(screen, info_font, collision_mask,
+                                                                            display_map, drag_car)
                         initial_starting_position = starting_position.copy()
-                        car = Car(initial_pos=starting_position.copy())
+
+                        car = Car(initial_pos=starting_position.copy(), surface=selected_surface)
                         car.speed = 0
                         car.angle = 0
                         angular_velocity = 0.0
@@ -135,38 +152,12 @@ def main():
                 elif quit_btn.collidepoint(mx, my):
                     pygame.quit(); sys.exit()
 
-
                 elif change_car_btn.collidepoint(mx, my):
-
-                    car_index = (car_index + 1) % len(car_images)
-
-                    car_image_name = car_images[car_index]
-
-                    car_image_path = os.path.join("cars", car_image_name)
-
-                    car = Car(initial_pos=starting_position.copy())
-
-                    car_image = pygame.image.load(car_image_path).convert_alpha()
-
-                    # Get custom size from the dictionary, default to (70, 60) if not found
-
-                    scale_size = car_scales.get(car_image_name, (75,75))
-
-                    car.surface = pygame.transform.scale(car_image, scale_size)
-
-                    car.rotate_surface = car.surface
-
-                    car.speed = 0
-
-                    car.angle = 0
-
+                    car, car_index = change_car(car_images, car_index, starting_position)
+                    selected_surface = car.surface  #  update selected_surface to the newly changed car
                     angular_velocity = 0.0
-
                     collision_count = 0
-
                     start_time = pygame.time.get_ticks()
-
-
 
                 elif show_modes_dropdown:
                     dropdown_y = modes_btn.bottom
@@ -180,7 +171,7 @@ def main():
                             pygame.quit(); os.system(f"python {script}"); sys.exit()
                     show_modes_dropdown = False
 
-        # move the car
+        # car movement
         keys = pygame.key.get_pressed()
         if keys[pygame.K_w]:
             car.speed = min(car.speed + acceleration, max_speed)
@@ -210,40 +201,37 @@ def main():
         car.angle += angular_velocity
         car.update(display_map, collision_mask)
 
-        # camera follow car
         offset_x = car.center[0] - SCREEN_WIDTH // 2
         offset_y = car.center[1] - SCREEN_HEIGHT // 2
-        camera_rect = pygame.Rect(offset_x, offset_y, SCREEN_WIDTH, SCREEN_HEIGHT)
-        screen.blit(display_map, (0, 0), camera_rect)
+        screen.blit(display_map, (0, 0), pygame.Rect(offset_x, offset_y, SCREEN_WIDTH, SCREEN_HEIGHT))
         car.draw(screen, info_font, offset=(offset_x, offset_y), draw_radars=False)
 
-        # if car crashed, reset
+        # crash and reset
         if not car.get_alive():
             collision_count += 1
             msg = info_font.render("Collision! Restarting...", True, (255, 0, 0))
             screen.blit(msg, (SCREEN_WIDTH // 2 - msg.get_width() // 2, SCREEN_HEIGHT // 2))
             pygame.display.flip()
             pygame.time.wait(1000)
-            car = Car(initial_pos=initial_starting_position.copy())
+            car = Car(initial_pos=initial_starting_position.copy(), surface=selected_surface)
             car.speed = 0
             car.angle = 0
             angular_velocity = 0.0
 
-        # draw top buttons
+        # draw UI
         draw_button(main_menu_btn, "Main Menu", main_menu_btn.collidepoint(*mouse_pos))
         draw_button(modes_btn, "Modes", modes_btn.collidepoint(*mouse_pos))
         draw_button(map_btn, "Map", map_btn.collidepoint(*mouse_pos))
         draw_button(quit_btn, "Quit", quit_btn.collidepoint(*mouse_pos))
         draw_button(change_car_btn, "Change Car", change_car_btn.collidepoint(*mouse_pos))
 
-        # draw dropdown
         if show_modes_dropdown:
             dropdown_y = modes_btn.bottom
             for i, mode in enumerate(["Self-Driving", "Manual", "Race"]):
                 rect = pygame.Rect(modes_btn.left, dropdown_y + i * button_height, button_width, button_height)
                 draw_button(rect, mode, rect.collidepoint(*mouse_pos))
 
-        # check if car reaches finish line
+        # finish line check
         if finish_point:
             finish_rect = pygame.Rect(
                 finish_point[0] - TRACK_WIDTH // 2,

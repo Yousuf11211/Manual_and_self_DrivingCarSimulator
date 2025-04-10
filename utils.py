@@ -206,8 +206,11 @@ def dropdown_map_selection(screen: pygame.Surface, font: pygame.font.Font) -> st
     return os.path.join(maps_folder, map_files[selected_index])
 
 def drag_and_drop_starting_position(screen: pygame.Surface, info_font: pygame.font.Font,
-                                    collision_mask: pygame.mask.Mask, display_map: pygame.Surface) -> list:
-    drag_car = Car()
+                                    collision_mask: pygame.mask.Mask, display_map: pygame.Surface,
+                                    drag_car: Car = None) -> list:
+    if drag_car is None:
+        drag_car = Car()
+
     initial_default = drag_car.pos.copy()
     dragging = False
     valid = False

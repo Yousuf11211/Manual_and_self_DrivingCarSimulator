@@ -38,8 +38,6 @@ def run_ai_generation(genomes, config, display_map, collision_mask, start_pos):
         car.update(display_map, collision_mask)
     return nets, cars
 
-manual_total_distance = 0
-
 def race():
     pygame.init()
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -64,7 +62,6 @@ def race():
 
     start_pos = drag_and_drop_starting_position(screen, info_font, collision_mask, display_map)
     manual_car = restart_manual_car(start_pos)
-    manual_checkpoint_pos = start_pos.copy()
     manual_angular_velocity = 0.0
     manual_finished = False
 
@@ -82,10 +79,13 @@ def race():
 
     genomes = []
     nets, cars = [], []
-    ai_respawn_timer_start = None
-    respawning_ai = False
     best_car_finished = False
     best_index = -1
+
+    first_finisher = None
+    finish_time = None
+    final_popup_shown = False
+    result_order = []
 
     def draw_button(rect, text, hover=False):
         color = (255, 255, 255) if hover else (200, 200, 200)
@@ -94,17 +94,25 @@ def race():
         label = info_font.render(text, True, (0, 0, 0))
         screen.blit(label, label.get_rect(center=rect.center))
 
-    def start_new_generation():
-        nonlocal genomes, nets, cars, ai_respawn_timer_start, respawning_ai
-        nonlocal best_car_finished, best_index, manual_checkpoint_pos
+    def show_popup(message, screen, font):
+        popup = font.render(message, True, (255, 255, 255))
+        padding = 20
 
+        text_rect = popup.get_rect()
+        bg_width = text_rect.width + padding * 2
+        bg_height = text_rect.height + padding
+        bg_surface = pygame.Surface((bg_width, bg_height), pygame.SRCALPHA)
+        bg_surface.fill((0, 0, 0, 180))  # translucent black
+
+        bg_surface.blit(popup, (padding, padding // 2))
+        screen.blit(bg_surface, ((SCREEN_WIDTH - bg_width) // 2, 10))
+
+    def start_new_generation():
+        nonlocal genomes, nets, cars, best_car_finished, best_index
         genomes = [(i, genome) for i, genome in enumerate(population.population.values())]
         nets, cars = run_ai_generation(genomes, config, display_map, collision_mask, start_pos)
-        ai_respawn_timer_start = None
-        respawning_ai = False
         best_car_finished = False
         best_index = -1
-        manual_checkpoint_pos = manual_car.pos.copy()
 
     start_new_generation()
 
@@ -113,7 +121,6 @@ def race():
         screen.fill(LightGreen)
         mouse_pos = pygame.mouse.get_pos()
 
-        # --- Events ---
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit(); sys.exit()
@@ -131,9 +138,12 @@ def race():
                         metadata = load_map_metadata(map_path)
                         start_pos = drag_and_drop_starting_position(screen, info_font, collision_mask, display_map)
                         manual_car = restart_manual_car(start_pos)
-                        manual_checkpoint_pos = start_pos.copy()
                         manual_angular_velocity = 0.0
                         manual_finished = False
+                        first_finisher = None
+                        finish_time = None
+                        final_popup_shown = False
+                        result_order = []
                         start_new_generation()
                 elif quit_btn.collidepoint(mx, my):
                     pygame.quit(); sys.exit()
@@ -149,7 +159,6 @@ def race():
                             pygame.quit(); os.system(f"python {script}"); sys.exit()
                     show_modes_dropdown = False
 
-        # --- Manual Car Movement ---
         if not manual_finished:
             keys = pygame.key.get_pressed()
             accel = 0.2
@@ -182,10 +191,9 @@ def race():
             manual_car.update(display_map, collision_mask)
 
             if not manual_car.get_alive():
-                manual_car = restart_manual_car(manual_checkpoint_pos)
+                manual_car = restart_manual_car(start_pos)
                 manual_angular_velocity = 0.0
 
-        # --- AI Car Logic ---
         alive_count = 0
         best_fitness = float('-inf')
         for i, car in enumerate(cars):
@@ -214,15 +222,10 @@ def race():
 
                 alive_count += 1
 
-        if alive_count == 0 and not respawning_ai:
-            ai_respawn_timer_start = pygame.time.get_ticks()
-            respawning_ai = True
-
-        if respawning_ai and pygame.time.get_ticks() - ai_respawn_timer_start >= 3000:
-            population.run(lambda g, c: None, 1)  # advance NEAT generation
+        if alive_count == 0:
+            population.run(lambda g, c: None, 1)
             start_new_generation()
 
-        # --- Camera ---
         offset_x = manual_car.center[0] - SCREEN_WIDTH // 2
         offset_y = manual_car.center[1] - SCREEN_HEIGHT // 2
         screen.blit(display_map, (0, 0), pygame.Rect(offset_x, offset_y, SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -233,7 +236,6 @@ def race():
             best_car = cars[best_index]
             best_car.draw(screen, info_font, offset=(offset_x, offset_y), draw_radars=False)
 
-        # --- Finish Line ---
         if metadata and "finish" in metadata:
             fx, fy = metadata["finish"]
             finish_rect = pygame.Rect(fx - TRACK_WIDTH // 2, fy - TRACK_WIDTH // 2, TRACK_WIDTH, TRACK_WIDTH)
@@ -242,36 +244,30 @@ def race():
             if not manual_finished and finish_rect.collidepoint(manual_car.center):
                 manual_finished = True
                 manual_car.speed = 0
+                if "Manual Car" not in result_order:
+                    result_order.append("Manual Car")
+                    if not first_finisher:
+                        first_finisher = "Manual Car"
+                        finish_time = pygame.time.get_ticks()
 
             if best_car and not best_car_finished and finish_rect.collidepoint(best_car.center):
                 best_car_finished = True
                 best_car.speed = 0
+                if "AI Car" not in result_order:
+                    result_order.append("AI Car")
+                    if not first_finisher:
+                        first_finisher = "AI Car"
+                        finish_time = pygame.time.get_ticks()
 
-        # --- Leaderboard ---
-        leaderboard = []
-        if best_car or respawning_ai:
-            label = "AI Car"
-            if best_car_finished:
-                label += " (Finished)"
-            elif respawning_ai:
-                seconds_left = 3 - ((pygame.time.get_ticks() - ai_respawn_timer_start) // 1000)
-                label += f" (Respawning in {seconds_left}s)"
-            leaderboard.append((label, best_car.distance if best_car else 0))
-        label = "Manual Car (Finished)" if manual_finished else "Manual Car"
-        leaderboard.append((label, manual_car.distance))
-        leaderboard.sort(key=lambda x: x[1], reverse=True)
+        if finish_time and not final_popup_shown and pygame.time.get_ticks() - finish_time < 2000:
+            show_popup(f"{first_finisher} reached the finish line first!", screen, info_font)
 
-        line_height = 40
-        box_width = 300
-        box_height = line_height * len(leaderboard) + 20
-        box_x = (SCREEN_WIDTH - box_width) // 2
-        box_y = 15
-        pygame.draw.rect(screen, (0, 0, 0), (box_x - 10, box_y - 10, box_width + 20, box_height), border_radius=8)
-        pygame.draw.rect(screen, (255, 255, 255), (box_x - 8, box_y - 8, box_width + 16, box_height - 4), border_radius=8)
+        if manual_finished and best_car_finished and not final_popup_shown:
+            final_popup_shown = True
+            finish_time = pygame.time.get_ticks()
 
-        for i, (label, distance) in enumerate(leaderboard):
-            text = info_font.render(f"{i + 1}. {label} - {distance:.0f} px", True, (0, 0, 0))
-            screen.blit(text, (box_x, box_y + i * line_height))
+        if final_popup_shown and pygame.time.get_ticks() - finish_time < 2000 and len(result_order) == 2:
+            show_popup(f"Race finished! 1st: {result_order[0]}, 2nd: {result_order[1]}", screen, info_font)
 
         draw_button(main_menu_btn, "Main Menu", main_menu_btn.collidepoint(*mouse_pos))
         draw_button(modes_btn, "Modes", modes_btn.collidepoint(*mouse_pos))

@@ -1,7 +1,6 @@
 import pygame
 import sys
 import os
-import json
 from typing import List
 from car import Car, SCREEN_WIDTH, SCREEN_HEIGHT
 
@@ -31,6 +30,7 @@ def get_sorted_map_files() -> List[str]:
     return sorted(files, key=sort_key)
 
 def load_map_metadata(map_path: str):
+    import json  # Local import to avoid global usage
     script_dir = os.path.dirname(os.path.abspath(__file__))
     metadata_dir = os.path.join(script_dir, "startfinish")
     base = os.path.splitext(os.path.basename(map_path))[0]
@@ -40,6 +40,10 @@ def load_map_metadata(map_path: str):
         with open(metadata_path, "r") as f:
             return json.load(f)
     return None
+
+# (All remaining functions like select_map, draw_map_button, dropdown_map_selection,
+#  drag_and_drop_starting_position remain unchanged — no edits required)
+
 
 def select_map(screen: pygame.Surface, font: pygame.font.Font) -> str:
     maps_folder = "maps"

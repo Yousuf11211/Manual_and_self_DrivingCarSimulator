@@ -3,8 +3,12 @@ import os
 import sys
 import argparse
 import pygame
+from auth import entry_screen, get_user_login, register_user
+from manual import run_manual
+from race import run_race
+from selfdriving import run_selfdriving
 
-# button class
+# Button class
 class Button:
     def __init__(self, image, pos, text_input, font, base_color, hovering_color):
         self.image = image
@@ -13,7 +17,6 @@ class Button:
         self.base_color = base_color
         self.hovering_color = hovering_color
         self.text_input = text_input
-
         self.text_surf = self.font.render(self.text_input, True, self.base_color)
         self.text_rect = self.text_surf.get_rect(center=(self.x_pos, self.y_pos))
         self.rect = self.image.get_rect(center=(self.x_pos, self.y_pos))
@@ -31,20 +34,20 @@ class Button:
         else:
             self.text_surf = self.font.render(self.text_input, True, self.base_color)
 
-# screen size
+# Screen size
 SCREEN_WIDTH = 1500
 SCREEN_HEIGHT = 800
 
-# load font
+# Load font
 def get_font(size):
     return pygame.font.Font("assets/font.ttf", size)
 
-# welcome screen
+# Splash screen
 def splash_screen(screen, font):
     splash = True
     while splash:
         screen.fill((0, 0, 0))
-        welcome_text = font.render("Welcome to Self Driving Car Simulator", True, (255, 255, 255))
+        welcome_text = font.render("This is a simple car driving simulator", True, (255, 255, 255))
         instruct_text = font.render("Press any key to continue", True, (255, 255, 255))
 
         screen.blit(welcome_text, welcome_text.get_rect(center=(SCREEN_WIDTH//2, SCREEN_HEIGHT//2 - 20)))
@@ -58,7 +61,18 @@ def splash_screen(screen, font):
                 pygame.quit()
                 sys.exit()
 
-# menu screen
+def run_selected_mode(mode, user_id=None, username="Guest", generations=1000):
+    if mode == "manual":
+        from manual import run_manual
+        run_manual(map_path=None, user_id=user_id, username=username)
+    elif mode == "race":
+        from race import run_race
+        run_race()
+    elif mode == "auto":
+        from selfdriving import run_selfdriving
+        run_selfdriving(generations=generations)
+
+# Menu screen
 def main_menu(screen, font):
     while True:
         BG = pygame.image.load("assets/Background.png")
@@ -125,7 +139,7 @@ def main_menu(screen, font):
 
         pygame.display.update()
 
-# main function
+# Main function
 def main():
     parser = argparse.ArgumentParser(description="NEAT Car Simulation")
     parser.add_argument('--generations', type=int, default=1000,
@@ -137,35 +151,31 @@ def main():
     pygame.display.set_caption("Self Driving Car Simulator")
     font = get_font(30)
 
+    background = pygame.image.load("assets/login.png").convert()
+    background = pygame.transform.scale(background, (SCREEN_WIDTH, SCREEN_HEIGHT))
+    bg_x, bg_y = 0, 0
+
     splash_screen(screen, font)
+    action = entry_screen(screen, font)
+
+
+    if action == "login":
+        user_id, username = get_user_login(screen, font, background, bg_x, bg_y)
+    elif action == "register":
+        username = register_user(screen, font, background, bg_x, bg_y)
+        from db import get_user
+        user_id = get_user(username, None)
+    else:  # guest
+        user_id, username = None, "Guest"
+
     mode = main_menu(screen, font)
 
     if mode == "manual":
-        os.system('python manual.py')
-        sys.exit(0)
+        run_manual(map_path=None, user_id=user_id, username=username)
     elif mode == "race":
-        os.system('python race.py')
-        sys.exit(0)
+        run_race()
     else:
-        from selfdriving import run_auto_mode
-        project_folder = os.path.dirname(os.path.abspath(__file__))
-        config_path = os.path.join(project_folder, 'config.txt')
-        if not os.path.exists(config_path):
-            print(f"Error: Configuration file '{config_path}' not found.")
-            sys.exit(1)
-
-        config = neat.config.Config(
-            neat.DefaultGenome,
-            neat.DefaultReproduction,
-            neat.DefaultSpeciesSet,
-            neat.DefaultStagnation,
-            config_path
-        )
-        population = neat.Population(config)
-        population.add_reporter(neat.StdOutReporter(True))
-        stats = neat.StatisticsReporter()
-        population.add_reporter(stats)
-        population.run(run_auto_mode, args.generations)
+        run_selfdriving(generations=args.generations)
 
 if __name__ == "__main__":
     main()

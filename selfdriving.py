@@ -11,9 +11,7 @@ from utils import (
     LightGreen, Black, CONSTANT_SPEED, TRACK_WIDTH
 )
 
-# this function runs each generation of NEAT
 def run_auto_mode(genomes, config):
-    # store map and start position across generations
     if not hasattr(run_auto_mode, "global_map_path"):
         run_auto_mode.global_map_path = None
     if not hasattr(run_auto_mode, "starting_position"):
@@ -29,7 +27,6 @@ def run_auto_mode(genomes, config):
     clock = pygame.time.Clock()
     info_font = pygame.font.SysFont("Arial", 30)
 
-    # Show transition screen if last generation crashed
     if run_auto_mode.last_gen_crashed:
         overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
         overlay.set_alpha(180)
@@ -41,7 +38,6 @@ def run_auto_mode(genomes, config):
         pygame.time.wait(1500)
         run_auto_mode.last_gen_crashed = False
 
-    # buttons at the top
     button_width, button_height = 140, 40
     spacing = 20
     top_margin = 20
@@ -53,7 +49,6 @@ def run_auto_mode(genomes, config):
     show_modes_dropdown = False
     simulation_paused = False
 
-    # load map if not already chosen
     if run_auto_mode.global_map_path is None:
         run_auto_mode.global_map_path = select_map(screen, info_font)
 
@@ -63,11 +58,9 @@ def run_auto_mode(genomes, config):
     collision_mask = pygame.mask.from_surface(collision_map)
     metadata = load_map_metadata(run_auto_mode.global_map_path)
 
-    # pick starting point if not chosen
     if run_auto_mode.starting_position is None:
         run_auto_mode.starting_position = drag_and_drop_starting_position(screen, info_font, collision_mask, display_map)
 
-    # create cars and neural networks
     nets, cars = [], []
     for _, genome in genomes:
         net = neat.nn.FeedForwardNetwork.create(genome, config)
@@ -78,7 +71,6 @@ def run_auto_mode(genomes, config):
     for car in cars:
         car.update(display_map, collision_mask)
 
-    # Force initial screen render before entering main loop
     screen.fill(LightGreen)
     screen.blit(display_map, (0, 0))
     pygame.display.flip()
@@ -135,14 +127,18 @@ def run_auto_mode(genomes, config):
                     pygame.quit(); sys.exit()
                 elif show_modes_dropdown:
                     dropdown_y = modes_btn.bottom
-                    for i, (label, script) in enumerate([
-                        ("Self-Driving", "selfdriving.py"),
-                        ("Manual", "manual.py"),
-                        ("Race", "race.py")
-                    ]):
+                    for i, label in enumerate(["Self-Driving", "Manual", "Race"]):
                         rect = pygame.Rect(modes_btn.left, dropdown_y + i * button_height, button_width, button_height)
                         if rect.collidepoint(mx, my):
-                            pygame.quit(); os.system(f"python {script}"); sys.exit()
+                            pygame.quit()
+                            import main
+                            if label == "Self-Driving":
+                                main.run_selected_mode("auto")
+                            elif label == "Manual":
+                                main.run_selected_mode("manual")
+                            elif label == "Race":
+                                main.run_selected_mode("race")
+                            sys.exit()
                     show_modes_dropdown = False
 
         if not simulation_paused:
@@ -218,18 +214,17 @@ def run_auto_mode(genomes, config):
         pygame.display.flip()
         clock.tick(simulation_fps)
 
+def run_selfdriving(generations=1000):
+    from selfdriving import run_auto_mode
 
-# this starts the program from command line
-if __name__ == "__main__":
-    import argparse
-    parser = argparse.ArgumentParser(description="NEAT Self-Driving Car Simulation")
-    parser.add_argument('--generations', type=int, default=1000)
-    args = parser.parse_args()
+    # Always reset these to force map selection
+    run_auto_mode.global_map_path = None
+    run_auto_mode.starting_position = None
 
     config_path = os.path.join(os.path.dirname(__file__), "config.txt")
     if not os.path.exists(config_path):
         print("Error: config.txt not found")
-        sys.exit(1)
+        return
 
     config = neat.config.Config(
         neat.DefaultGenome, neat.DefaultReproduction,
@@ -241,4 +236,4 @@ if __name__ == "__main__":
     population.add_reporter(neat.StdOutReporter(True))
     stats = neat.StatisticsReporter()
     population.add_reporter(stats)
-    population.run(run_auto_mode, args.generations)
+    population.run(run_auto_mode, generations)

@@ -26,14 +26,14 @@ def restart_manual_car(pos):
     car.angle = 0
     return car
 
-def run_ai_generation(genomes, config, display_map, collision_mask, start_pos):
+def run_ai_generation(genomes, config, display_map, collision_mask, start_pos, ai_car_surface):
     nets = []
     cars = []
     for _, genome in genomes:
         net = neat.nn.FeedForwardNetwork.create(genome, config)
         nets.append(net)
         genome.fitness = 0
-        cars.append(Car(initial_pos=start_pos.copy()))
+        cars.append(Car(initial_pos=start_pos.copy(), surface=ai_car_surface))
     for car in cars:
         car.update(display_map, collision_mask)
     return nets, cars
@@ -42,6 +42,13 @@ def race():
     pygame.init()
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     pygame.display.set_caption("Race: Manual vs Evolving AI")
+
+    ai_car_surface = pygame.image.load(os.path.join("cars", "car7.png")).convert_alpha()
+    ai_car_surface = pygame.transform.scale(ai_car_surface, (75, 75))
+
+    manual_car_surface = pygame.image.load(os.path.join("cars", "car.png")).convert_alpha()
+    manual_car_surface = pygame.transform.scale(manual_car_surface, (75, 75))
+
     clock = pygame.time.Clock()
     info_font = pygame.font.SysFont("Arial", 30)
 
@@ -97,20 +104,18 @@ def race():
     def show_popup(message, screen, font):
         popup = font.render(message, True, (255, 255, 255))
         padding = 20
-
         text_rect = popup.get_rect()
         bg_width = text_rect.width + padding * 2
         bg_height = text_rect.height + padding
         bg_surface = pygame.Surface((bg_width, bg_height), pygame.SRCALPHA)
-        bg_surface.fill((0, 0, 0, 180))  # translucent black
-
+        bg_surface.fill((0, 0, 0, 180))
         bg_surface.blit(popup, (padding, padding // 2))
         screen.blit(bg_surface, ((SCREEN_WIDTH - bg_width) // 2, 10))
 
     def start_new_generation():
         nonlocal genomes, nets, cars, best_car_finished, best_index
         genomes = [(i, genome) for i, genome in enumerate(population.population.values())]
-        nets, cars = run_ai_generation(genomes, config, display_map, collision_mask, start_pos)
+        nets, cars = run_ai_generation(genomes, config, display_map, collision_mask, start_pos, ai_car_surface)
         best_car_finished = False
         best_index = -1
 
@@ -149,14 +154,18 @@ def race():
                     pygame.quit(); sys.exit()
                 elif show_modes_dropdown:
                     dropdown_y = modes_btn.bottom
-                    for i, (label, script) in enumerate([
-                        ("Self-Driving", "selfdriving.py"),
-                        ("Manual", "manual.py"),
-                        ("Race", "race.py")
-                    ]):
+                    for i, label in enumerate(["Self-Driving", "Manual", "Race"]):
                         rect = pygame.Rect(modes_btn.left, dropdown_y + i * button_height, button_width, button_height)
                         if rect.collidepoint(mx, my):
-                            pygame.quit(); os.system(f"python {script}"); sys.exit()
+                            pygame.quit()
+                            import main
+                            if label == "Self-Driving":
+                                main.run_selected_mode("auto")
+                            elif label == "Manual":
+                                main.run_selected_mode("manual")
+                            elif label == "Race":
+                                main.run_selected_mode("race")
+                            sys.exit()
                     show_modes_dropdown = False
 
         if not manual_finished:
@@ -282,5 +291,5 @@ def race():
 
         pygame.display.flip()
 
-if __name__ == "__main__":
+def run_race():
     race()

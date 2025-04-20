@@ -68,6 +68,8 @@ def get_user(username, password=None):
 
 
 def insert_score(user_id, map_name, time_taken, collisions, checkpoints):
+    print(">>> INSERTING SCORE INTO DB")
+
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute('''

@@ -98,7 +98,10 @@ def run_auto_mode(genomes, config):
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 mx, my = pygame.mouse.get_pos()
                 if main_menu_btn.collidepoint(mx, my):
-                    pygame.quit(); os.system("python main.py"); sys.exit()
+                    from main import main_menu
+                    pygame.quit()
+                    main_menu()
+
                 elif modes_btn.collidepoint(mx, my):
                     show_modes_dropdown = not show_modes_dropdown
                 elif map_btn.collidepoint(mx, my):

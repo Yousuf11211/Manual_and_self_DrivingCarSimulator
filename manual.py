@@ -23,6 +23,7 @@ def save_score(user_id, map_name, time_taken, collisions, checkpoints):
 def main(map_path=None, respawn_pos=None, user_id=None, username="Guest"):
     init_db()
     global car_index, car_images
+    print(">>> USER ID:", user_id, "USERNAME:", username)
 
     pygame.init()
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -109,7 +110,10 @@ def main(map_path=None, respawn_pos=None, user_id=None, username="Guest"):
                 mx, my = pygame.mouse.get_pos()
 
                 if main_menu_btn.collidepoint(mx, my):
-                    pygame.quit(); os.system("python main.py"); sys.exit()
+                    pygame.quit();
+                    from main import main_menu
+                    main_menu()
+
 
                 elif modes_btn.collidepoint(mx, my):
                     show_modes_dropdown = not show_modes_dropdown
@@ -276,8 +280,10 @@ def main(map_path=None, respawn_pos=None, user_id=None, username="Guest"):
                 angular_velocity = 0
                 show_finish_message = True
                 show_retry_button = True
+                print(">>> Saving score for user_id:", user_id)
 
                 save_score(user_id, global_map_path, total_time, collision_count, checkpoint_used_count)
+
 
                 msg = f"Finished in {total_time:.2f}s | Collisions: {collision_count} | Checkpoints: {checkpoint_used_count}"
                 finish_msg_surface = info_font.render(msg, True, (0, 0, 255))

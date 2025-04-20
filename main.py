@@ -8,6 +8,10 @@ from manual import run_manual
 from race import run_race
 from selfdriving import run_selfdriving
 
+# Screen size
+SCREEN_WIDTH = 1500
+SCREEN_HEIGHT = 800
+
 # Button class
 class Button:
     def __init__(self, image, pos, text_input, font, base_color, hovering_color):
@@ -34,10 +38,6 @@ class Button:
         else:
             self.text_surf = self.font.render(self.text_input, True, self.base_color)
 
-# Screen size
-SCREEN_WIDTH = 1500
-SCREEN_HEIGHT = 800
-
 # Load font
 def get_font(size):
     return pygame.font.Font("assets/font.ttf", size)
@@ -61,19 +61,13 @@ def splash_screen(screen, font):
                 pygame.quit()
                 sys.exit()
 
-def run_selected_mode(mode, user_id=None, username="Guest", generations=1000):
-    if mode == "manual":
-        from manual import run_manual
-        run_manual(map_path=None, user_id=user_id, username=username)
-    elif mode == "race":
-        from race import run_race
-        run_race()
-    elif mode == "auto":
-        from selfdriving import run_selfdriving
-        run_selfdriving(generations=generations)
+# Main menu screen (standalone)
+def main_menu(user_id=None, username="Guest"):
+    pygame.init()
+    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+    pygame.display.set_caption("Main Menu")
+    font = get_font(30)
 
-# Menu screen
-def main_menu(screen, font):
     while True:
         BG = pygame.image.load("assets/Background.png")
         BG = pygame.transform.scale(BG, (SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -128,18 +122,37 @@ def main_menu(screen, font):
                 sys.exit()
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 if self_driving_button.checkForInput(mouse_pos):
-                    return "auto"
+                    from selfdriving import run_selfdriving
+                    pygame.quit()
+                    run_selfdriving()
                 if manual_button.checkForInput(mouse_pos):
-                    return "manual"
+                    from manual import run_manual
+                    pygame.quit()
+                    run_manual(user_id=user_id, username=username)
+
                 if race_button.checkForInput(mouse_pos):
-                    return "race"
+                    from race import run_race
+                    pygame.quit()
+                    run_race()
                 if quit_button.checkForInput(mouse_pos):
                     pygame.quit()
                     sys.exit()
 
         pygame.display.update()
 
-# Main function
+# Mode selection from dropdown use
+def run_selected_mode(mode, user_id=None, username="Guest", generations=1000):
+    if mode == "manual":
+        from manual import run_manual
+        run_manual(map_path=None, user_id=user_id, username=username)
+    elif mode == "race":
+        from race import run_race
+        run_race()
+    elif mode == "auto":
+        from selfdriving import run_selfdriving
+        run_selfdriving(generations=generations)
+
+# Main entry
 def main():
     parser = argparse.ArgumentParser(description="NEAT Car Simulation")
     parser.add_argument('--generations', type=int, default=1000,
@@ -158,7 +171,6 @@ def main():
     splash_screen(screen, font)
     action = entry_screen(screen, font)
 
-
     if action == "login":
         user_id, username = get_user_login(screen, font, background, bg_x, bg_y)
     elif action == "register":
@@ -168,7 +180,7 @@ def main():
     else:  # guest
         user_id, username = None, "Guest"
 
-    mode = main_menu(screen, font)
+    mode = run_main_menu(user_id, username)
 
     if mode == "manual":
         run_manual(map_path=None, user_id=user_id, username=username)
@@ -176,6 +188,14 @@ def main():
         run_race()
     else:
         run_selfdriving(generations=args.generations)
+
+# For entry screen flow only — keeps full menu return modular
+def run_main_menu(user_id, username):
+    return_value = True
+    while return_value:
+        mode = main_menu(user_id, username)
+        return mode
+
 
 if __name__ == "__main__":
     main()

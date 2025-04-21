@@ -13,6 +13,7 @@ from utils import (
     dropdown_map_selection
 )
 
+
 def load_map_and_mask(map_path):
     map_surface = pygame.image.load(map_path).convert_alpha()
     collision_surface = map_surface.copy()
@@ -20,11 +21,13 @@ def load_map_and_mask(map_path):
     collision_mask = pygame.mask.from_surface(collision_surface)
     return map_surface, collision_mask
 
+
 def restart_manual_car(pos):
     car = Car(initial_pos=pos.copy())
     car.speed = 0
     car.angle = 0
     return car
+
 
 def run_ai_generation(genomes, config, display_map, collision_mask, start_pos, ai_car_surface):
     nets = []
@@ -38,10 +41,11 @@ def run_ai_generation(genomes, config, display_map, collision_mask, start_pos, a
         car.update(display_map, collision_mask)
     return nets, cars
 
-def race():
+
+def race(user_id=None, username="Guest"):
     pygame.init()
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-    pygame.display.set_caption("Race: Manual vs Evolving AI")
+    pygame.display.set_caption(f"Race: Manual vs Evolving AI | User: {username}")
 
     ai_car_surface = pygame.image.load(os.path.join("cars", "car7.png")).convert_alpha()
     ai_car_surface = pygame.transform.scale(ai_car_surface, (75, 75))
@@ -52,6 +56,7 @@ def race():
     clock = pygame.time.Clock()
     info_font = pygame.font.SysFont("Arial", 30)
 
+    # Button definitions
     button_width, button_height = 140, 40
     spacing = 20
     top_margin = 20
@@ -60,9 +65,12 @@ def race():
     modes_btn = pygame.Rect(main_menu_btn.right + spacing, top_margin, button_width, button_height)
     map_btn = pygame.Rect(modes_btn.right + spacing, top_margin, button_width, button_height)
     quit_btn = pygame.Rect(SCREEN_WIDTH - button_width - spacing, top_margin, button_width, button_height)
+    logout_btn = pygame.Rect(quit_btn.left - button_width - spacing, top_margin, button_width, button_height)
 
+    show_logout_prompt = False
     show_modes_dropdown = False
 
+    # Initialize map and AI
     map_path = select_map(screen, info_font)
     display_map, collision_mask = load_map_and_mask(map_path)
     metadata = load_map_metadata(map_path)
@@ -72,6 +80,7 @@ def race():
     manual_angular_velocity = 0.0
     manual_finished = False
 
+    # NEAT configuration
     config_path = os.path.join(os.path.dirname(__file__), "config.txt")
     config = neat.config.Config(
         neat.DefaultGenome,
@@ -84,11 +93,11 @@ def race():
     population.add_reporter(neat.StdOutReporter(True))
     population.add_reporter(neat.StatisticsReporter())
 
+    # AI and race state variables
     genomes = []
     nets, cars = [], []
     best_car_finished = False
     best_index = -1
-
     first_finisher = None
     finish_time = None
     final_popup_shown = False
@@ -125,52 +134,74 @@ def race():
         clock.tick(60)
         screen.fill(LightGreen)
         mouse_pos = pygame.mouse.get_pos()
+        yes_btn = pygame.Rect(SCREEN_WIDTH // 2 - 130, SCREEN_HEIGHT // 2 + 10, 100, 40)
+        no_btn = pygame.Rect(SCREEN_WIDTH // 2 + 30, SCREEN_HEIGHT // 2 + 10, 100, 40)
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                pygame.quit(); sys.exit()
+                pygame.quit()
+                sys.exit()
+
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 mx, my = pygame.mouse.get_pos()
-                if main_menu_btn.collidepoint(mx, my):
-                    from main import main_menu
-                    pygame.quit()
-                    main_menu()
 
-                elif modes_btn.collidepoint(mx, my):
-                    show_modes_dropdown = not show_modes_dropdown
-                elif map_btn.collidepoint(mx, my):
-                    new_map = dropdown_map_selection(screen, info_font)
-                    if new_map:
-                        map_path = new_map
-                        display_map, collision_mask = load_map_and_mask(map_path)
-                        metadata = load_map_metadata(map_path)
-                        start_pos = drag_and_drop_starting_position(screen, info_font, collision_mask, display_map)
-                        manual_car = restart_manual_car(start_pos)
-                        manual_angular_velocity = 0.0
-                        manual_finished = False
-                        first_finisher = None
-                        finish_time = None
-                        final_popup_shown = False
-                        result_order = []
-                        start_new_generation()
-                elif quit_btn.collidepoint(mx, my):
-                    pygame.quit(); sys.exit()
-                elif show_modes_dropdown:
-                    dropdown_y = modes_btn.bottom
-                    for i, label in enumerate(["Self-Driving", "Manual", "Race"]):
-                        rect = pygame.Rect(modes_btn.left, dropdown_y + i * button_height, button_width, button_height)
-                        if rect.collidepoint(mx, my):
-                            pygame.quit()
-                            import main
-                            if label == "Self-Driving":
-                                main.run_selected_mode("auto")
-                            elif label == "Manual":
-                                main.run_selected_mode("manual")
-                            elif label == "Race":
-                                main.run_selected_mode("race")
-                            sys.exit()
-                    show_modes_dropdown = False
+                if show_logout_prompt:
+                    if yes_btn.collidepoint(mx, my):
+                        pygame.quit()
+                        os.system("python main.py")
+                        return
+                    elif no_btn.collidepoint(mx, my):
+                        show_logout_prompt = False
+                else:
+                    if main_menu_btn.collidepoint(mx, my):
+                        from main import main_menu
+                        pygame.quit()
+                        main_menu()
 
+                    elif modes_btn.collidepoint(mx, my):
+                        show_modes_dropdown = not show_modes_dropdown
+
+                    elif logout_btn.collidepoint(mx, my):
+                        show_logout_prompt = True
+
+                    elif map_btn.collidepoint(mx, my):
+                        new_map = dropdown_map_selection(screen, info_font)
+                        if new_map:
+                            map_path = new_map
+                            display_map, collision_mask = load_map_and_mask(map_path)
+                            metadata = load_map_metadata(map_path)
+                            start_pos = drag_and_drop_starting_position(screen, info_font, collision_mask, display_map)
+                            manual_car = restart_manual_car(start_pos)
+                            manual_angular_velocity = 0.0
+                            manual_finished = False
+                            first_finisher = None
+                            finish_time = None
+                            final_popup_shown = False
+                            result_order = []
+                            start_new_generation()
+
+                    elif quit_btn.collidepoint(mx, my):
+                        pygame.quit()
+                        sys.exit()
+
+                    elif show_modes_dropdown:
+                        dropdown_y = modes_btn.bottom
+                        for i, label in enumerate(["Self-Driving", "Manual", "Race"]):
+                            rect = pygame.Rect(modes_btn.left, dropdown_y + i * button_height, button_width,
+                                               button_height)
+                            if rect.collidepoint(mx, my):
+                                pygame.quit()
+                                import main
+                                if label == "Self-Driving":
+                                    main.run_selected_mode("auto", user_id, username)
+                                elif label == "Manual":
+                                    main.run_selected_mode("manual", user_id, username)
+                                elif label == "Race":
+                                    main.run_selected_mode("race", user_id, username)
+                                sys.exit()
+                        show_modes_dropdown = False
+
+        # Manual car controls
         if not manual_finished:
             keys = pygame.key.get_pressed()
             accel = 0.2
@@ -196,7 +227,9 @@ def race():
             elif keys[pygame.K_d]:
                 manual_angular_velocity -= turn_accel
             else:
-                manual_angular_velocity = max(manual_angular_velocity - turn_decel, 0) if manual_angular_velocity > 0 else min(manual_angular_velocity + turn_decel, 0)
+                manual_angular_velocity = max(manual_angular_velocity - turn_decel,
+                                              0) if manual_angular_velocity > 0 else min(
+                    manual_angular_velocity + turn_decel, 0)
 
             manual_angular_velocity = max(-max_turn, min(max_turn, manual_angular_velocity))
             manual_car.angle += manual_angular_velocity
@@ -206,6 +239,7 @@ def race():
                 manual_car = restart_manual_car(start_pos)
                 manual_angular_velocity = 0.0
 
+        # AI car logic
         alive_count = 0
         best_fitness = float('-inf')
         for i, car in enumerate(cars):
@@ -238,16 +272,19 @@ def race():
             population.run(lambda g, c: None, 1)
             start_new_generation()
 
+        # Camera positioning
         offset_x = manual_car.center[0] - SCREEN_WIDTH // 2
         offset_y = manual_car.center[1] - SCREEN_HEIGHT // 2
         screen.blit(display_map, (0, 0), pygame.Rect(offset_x, offset_y, SCREEN_WIDTH, SCREEN_HEIGHT))
 
+        # Draw cars
         manual_car.draw(screen, info_font, offset=(offset_x, offset_y), draw_radars=False)
         best_car = None
         if best_index != -1 and cars[best_index].get_alive():
             best_car = cars[best_index]
             best_car.draw(screen, info_font, offset=(offset_x, offset_y), draw_radars=False)
 
+        # Finish line logic
         if metadata and "finish" in metadata:
             fx, fy = metadata["finish"]
             finish_rect = pygame.Rect(fx - TRACK_WIDTH // 2, fy - TRACK_WIDTH // 2, TRACK_WIDTH, TRACK_WIDTH)
@@ -271,6 +308,7 @@ def race():
                         first_finisher = "AI Car"
                         finish_time = pygame.time.get_ticks()
 
+        # Race status popups
         if finish_time and not final_popup_shown and pygame.time.get_ticks() - finish_time < 2000:
             show_popup(f"{first_finisher} reached the finish line first!", screen, info_font)
 
@@ -281,10 +319,12 @@ def race():
         if final_popup_shown and pygame.time.get_ticks() - finish_time < 2000 and len(result_order) == 2:
             show_popup(f"Race finished! 1st: {result_order[0]}, 2nd: {result_order[1]}", screen, info_font)
 
+        # Draw UI elements
         draw_button(main_menu_btn, "Main Menu", main_menu_btn.collidepoint(*mouse_pos))
         draw_button(modes_btn, "Modes", modes_btn.collidepoint(*mouse_pos))
         draw_button(map_btn, "Map", map_btn.collidepoint(*mouse_pos))
         draw_button(quit_btn, "Quit", quit_btn.collidepoint(*mouse_pos))
+        draw_button(logout_btn, "Logout", logout_btn.collidepoint(*mouse_pos))
 
         if show_modes_dropdown:
             dropdown_y = modes_btn.bottom
@@ -292,7 +332,25 @@ def race():
                 rect = pygame.Rect(modes_btn.left, dropdown_y + i * button_height, button_width, button_height)
                 draw_button(rect, mode, rect.collidepoint(*mouse_pos))
 
+        # Logout prompt
+        if show_logout_prompt:
+            overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+            overlay.set_alpha(180)
+            overlay.fill((0, 0, 0))
+            screen.blit(overlay, (0, 0))
+
+            confirm_box = pygame.Rect(SCREEN_WIDTH // 2 - 200, SCREEN_HEIGHT // 2 - 100, 400, 180)
+            pygame.draw.rect(screen, (255, 255, 255), confirm_box)
+            pygame.draw.rect(screen, (0, 0, 0), confirm_box, 2)
+
+            prompt_text = info_font.render("Are you sure you want to logout?", True, (0, 0, 0))
+            screen.blit(prompt_text, (confirm_box.centerx - prompt_text.get_width() // 2, confirm_box.y + 30))
+
+            draw_button(yes_btn, "Yes", yes_btn.collidepoint(*mouse_pos))
+            draw_button(no_btn, "No", no_btn.collidepoint(*mouse_pos))
+
         pygame.display.flip()
 
-def run_race():
-    race()
+
+def run_race(user_id=None, username="Guest"):
+    race(user_id, username)

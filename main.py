@@ -133,7 +133,8 @@ def main_menu(user_id=None, username="Guest"):
                 if race_button.checkForInput(mouse_pos):
                     from race import run_race
                     pygame.quit()
-                    run_race()
+                    run_race(user_id=user_id, username=username)
+
                 if quit_button.checkForInput(mouse_pos):
                     pygame.quit()
                     sys.exit()
@@ -147,7 +148,8 @@ def run_selected_mode(mode, user_id=None, username="Guest", generations=1000):
         run_manual(map_path=None, user_id=user_id, username=username)
     elif mode == "race":
         from race import run_race
-        run_race()
+        run_race(user_id=user_id, username=username)
+
     elif mode == "auto":
         from selfdriving import run_selfdriving
         run_selfdriving(generations=generations)

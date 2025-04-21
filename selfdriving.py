@@ -11,7 +11,8 @@ from utils import (
     LightGreen, Black, CONSTANT_SPEED, TRACK_WIDTH
 )
 
-def run_auto_mode(genomes, config):
+
+def run_auto_mode(genomes, config, user_id=None, username="Guest"):
     if not hasattr(run_auto_mode, "global_map_path"):
         run_auto_mode.global_map_path = None
     if not hasattr(run_auto_mode, "starting_position"):
@@ -23,7 +24,7 @@ def run_auto_mode(genomes, config):
 
     pygame.init()
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-    pygame.display.set_caption("Self-Driving Mode")
+    pygame.display.set_caption(f"Self-Driving Mode | User: {username}")
     clock = pygame.time.Clock()
     info_font = pygame.font.SysFont("Arial", 30)
 
@@ -38,6 +39,7 @@ def run_auto_mode(genomes, config):
         pygame.time.wait(1500)
         run_auto_mode.last_gen_crashed = False
 
+    # Button definitions
     button_width, button_height = 140, 40
     spacing = 20
     top_margin = 20
@@ -45,7 +47,9 @@ def run_auto_mode(genomes, config):
     modes_btn = pygame.Rect(main_menu_btn.right + spacing, top_margin, button_width, button_height)
     map_btn = pygame.Rect(modes_btn.right + spacing, top_margin, button_width, button_height)
     quit_btn = pygame.Rect(SCREEN_WIDTH - button_width - spacing, top_margin, button_width, button_height)
+    logout_btn = pygame.Rect(quit_btn.left - button_width - spacing, top_margin, button_width, button_height)
 
+    show_logout_prompt = False
     show_modes_dropdown = False
     simulation_paused = False
 
@@ -59,7 +63,8 @@ def run_auto_mode(genomes, config):
     metadata = load_map_metadata(run_auto_mode.global_map_path)
 
     if run_auto_mode.starting_position is None:
-        run_auto_mode.starting_position = drag_and_drop_starting_position(screen, info_font, collision_mask, display_map)
+        run_auto_mode.starting_position = drag_and_drop_starting_position(screen, info_font, collision_mask,
+                                                                          display_map)
 
     nets, cars = [], []
     for _, genome in genomes:
@@ -91,58 +96,80 @@ def run_auto_mode(genomes, config):
     while True:
         screen.fill(LightGreen)
         mouse_pos = pygame.mouse.get_pos()
+        yes_btn = pygame.Rect(SCREEN_WIDTH // 2 - 130, SCREEN_HEIGHT // 2 + 10, 100, 40)
+        no_btn = pygame.Rect(SCREEN_WIDTH // 2 + 30, SCREEN_HEIGHT // 2 + 10, 100, 40)
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                pygame.quit(); sys.exit()
+                pygame.quit();
+                sys.exit()
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 mx, my = pygame.mouse.get_pos()
-                if main_menu_btn.collidepoint(mx, my):
-                    from main import main_menu
-                    pygame.quit()
-                    main_menu()
 
-                elif modes_btn.collidepoint(mx, my):
-                    show_modes_dropdown = not show_modes_dropdown
-                elif map_btn.collidepoint(mx, my):
-                    new_map = dropdown_map_selection(screen, info_font)
-                    if new_map:
-                        run_auto_mode.global_map_path = new_map
-                        display_map = pygame.image.load(new_map).convert_alpha()
-                        collision_map = display_map.copy()
-                        collision_map.set_colorkey(LightGreen)
-                        collision_mask = pygame.mask.from_surface(collision_map)
-                        metadata = load_map_metadata(new_map)
-                        run_auto_mode.starting_position = drag_and_drop_starting_position(screen, info_font, collision_mask, display_map)
-                        nets.clear()
-                        cars.clear()
-                        for _, genome in genomes:
-                            net = neat.nn.FeedForwardNetwork.create(genome, config)
-                            nets.append(net)
-                            genome.fitness = 0
-                            cars.append(Car(initial_pos=run_auto_mode.starting_position.copy()))
-                        for car in cars:
-                            car.update(display_map, collision_mask)
-                        run_auto_mode.generation = 0
-                        simulation_paused = False
-                        generation_start_time = pygame.time.get_ticks()
-                elif quit_btn.collidepoint(mx, my):
-                    pygame.quit(); sys.exit()
-                elif show_modes_dropdown:
-                    dropdown_y = modes_btn.bottom
-                    for i, label in enumerate(["Self-Driving", "Manual", "Race"]):
-                        rect = pygame.Rect(modes_btn.left, dropdown_y + i * button_height, button_width, button_height)
-                        if rect.collidepoint(mx, my):
-                            pygame.quit()
-                            import main
-                            if label == "Self-Driving":
-                                main.run_selected_mode("auto")
-                            elif label == "Manual":
-                                main.run_selected_mode("manual")
-                            elif label == "Race":
-                                main.run_selected_mode("race")
-                            sys.exit()
-                    show_modes_dropdown = False
+                if show_logout_prompt:
+                    if yes_btn.collidepoint(mx, my):
+                        pygame.quit()
+                        os.system("python main.py")
+                        return
+                    elif no_btn.collidepoint(mx, my):
+                        show_logout_prompt = False
+                else:
+                    if main_menu_btn.collidepoint(mx, my):
+                        from main import main_menu
+                        pygame.quit()
+                        main_menu()
+
+                    elif modes_btn.collidepoint(mx, my):
+                        show_modes_dropdown = not show_modes_dropdown
+
+                    elif logout_btn.collidepoint(mx, my):
+                        show_logout_prompt = True
+
+                    elif map_btn.collidepoint(mx, my):
+                        new_map = dropdown_map_selection(screen, info_font)
+                        if new_map:
+                            run_auto_mode.global_map_path = new_map
+                            display_map = pygame.image.load(new_map).convert_alpha()
+                            collision_map = display_map.copy()
+                            collision_map.set_colorkey(LightGreen)
+                            collision_mask = pygame.mask.from_surface(collision_map)
+                            metadata = load_map_metadata(new_map)
+                            run_auto_mode.starting_position = drag_and_drop_starting_position(screen, info_font,
+                                                                                              collision_mask,
+                                                                                              display_map)
+                            nets.clear()
+                            cars.clear()
+                            for _, genome in genomes:
+                                net = neat.nn.FeedForwardNetwork.create(genome, config)
+                                nets.append(net)
+                                genome.fitness = 0
+                                cars.append(Car(initial_pos=run_auto_mode.starting_position.copy()))
+                            for car in cars:
+                                car.update(display_map, collision_mask)
+                            run_auto_mode.generation = 0
+                            simulation_paused = False
+                            generation_start_time = pygame.time.get_ticks()
+
+                    elif quit_btn.collidepoint(mx, my):
+                        pygame.quit();
+                        sys.exit()
+
+                    elif show_modes_dropdown:
+                        dropdown_y = modes_btn.bottom
+                        for i, label in enumerate(["Self-Driving", "Manual", "Race"]):
+                            rect = pygame.Rect(modes_btn.left, dropdown_y + i * button_height, button_width,
+                                               button_height)
+                            if rect.collidepoint(mx, my):
+                                pygame.quit()
+                                import main
+                                if label == "Self-Driving":
+                                    main.run_selected_mode("auto", user_id, username)
+                                elif label == "Manual":
+                                    main.run_selected_mode("manual", user_id, username)
+                                elif label == "Race":
+                                    main.run_selected_mode("race", user_id, username)
+                                sys.exit()
+                        show_modes_dropdown = False
 
         if not simulation_paused:
             remaining_cars = 0
@@ -195,10 +222,12 @@ def run_auto_mode(genomes, config):
             if car.get_alive():
                 car.draw(screen, info_font, offset=(offset_x, offset_y), draw_radars=True)
 
+        # Draw all buttons
         draw_button(main_menu_btn, "Main Menu", main_menu_btn.collidepoint(*mouse_pos))
         draw_button(modes_btn, "Modes", modes_btn.collidepoint(*mouse_pos))
         draw_button(map_btn, "Map", map_btn.collidepoint(*mouse_pos))
         draw_button(quit_btn, "Quit", quit_btn.collidepoint(*mouse_pos))
+        draw_button(logout_btn, "Logout", logout_btn.collidepoint(*mouse_pos))
 
         if show_modes_dropdown:
             dropdown_y = modes_btn.bottom
@@ -214,12 +243,28 @@ def run_auto_mode(genomes, config):
             msg = info_font.render("Car reached the finish line!", True, (0, 0, 255))
             screen.blit(msg, (SCREEN_WIDTH // 2 - msg.get_width() // 2, SCREEN_HEIGHT // 2 - 20))
 
+        if show_logout_prompt:
+            # Draw logout confirmation overlay
+            overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+            overlay.set_alpha(180)
+            overlay.fill((0, 0, 0))
+            screen.blit(overlay, (0, 0))
+
+            confirm_box = pygame.Rect(SCREEN_WIDTH // 2 - 200, SCREEN_HEIGHT // 2 - 100, 400, 180)
+            pygame.draw.rect(screen, (255, 255, 255), confirm_box)
+            pygame.draw.rect(screen, (0, 0, 0), confirm_box, 2)
+
+            prompt_text = info_font.render("Are you sure you want to logout?", True, (0, 0, 0))
+            screen.blit(prompt_text, (confirm_box.centerx - prompt_text.get_width() // 2, confirm_box.y + 30))
+
+            draw_button(yes_btn, "Yes", yes_btn.collidepoint(*mouse_pos))
+            draw_button(no_btn, "No", no_btn.collidepoint(*mouse_pos))
+
         pygame.display.flip()
         clock.tick(simulation_fps)
 
-def run_selfdriving(generations=1000):
-    from selfdriving import run_auto_mode
 
+def run_selfdriving(generations=1000, user_id=None, username="Guest"):
     # Always reset these to force map selection
     run_auto_mode.global_map_path = None
     run_auto_mode.starting_position = None
@@ -239,4 +284,4 @@ def run_selfdriving(generations=1000):
     population.add_reporter(neat.StdOutReporter(True))
     stats = neat.StatisticsReporter()
     population.add_reporter(stats)
-    population.run(run_auto_mode, generations)
+    population.run(lambda genomes, config: run_auto_mode(genomes, config, user_id, username), generations)

@@ -86,10 +86,12 @@ def main(map_path=None, respawn_pos=None, user_id=None, username="Guest"):
     map_btn = pygame.Rect(modes_btn.right + spacing, top_margin, button_width, button_height)
     quit_btn = pygame.Rect(SCREEN_WIDTH - button_width - spacing, top_margin, button_width, button_height)
     change_car_btn = pygame.Rect(quit_btn.left - button_width - spacing, top_margin, button_width, button_height)
-    add_checkpoint_btn = pygame.Rect(change_car_btn.left - button_width - spacing, top_margin, button_width, button_height)
+    logout_btn = pygame.Rect(change_car_btn.left - button_width - spacing, top_margin, button_width, button_height)
+    add_checkpoint_btn = pygame.Rect(logout_btn.left - button_width - spacing, top_margin, button_width, button_height)
     retry_btn = pygame.Rect(SCREEN_WIDTH // 2 - 70, SCREEN_HEIGHT // 2 + 20, 140, 40)
 
     show_modes_dropdown = False
+    show_logout_prompt = False
     running = True
 
     def draw_button(rect, text, hover=False):
@@ -102,6 +104,8 @@ def main(map_path=None, respawn_pos=None, user_id=None, username="Guest"):
     while running:
         screen.fill(LightGreen)
         mouse_pos = pygame.mouse.get_pos()
+        yes_btn = pygame.Rect(SCREEN_WIDTH // 2 - 130, SCREEN_HEIGHT // 2 + 10, 100, 40)
+        no_btn = pygame.Rect(SCREEN_WIDTH // 2 + 30, SCREEN_HEIGHT // 2 + 10, 100, 40)
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -109,80 +113,55 @@ def main(map_path=None, respawn_pos=None, user_id=None, username="Guest"):
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 mx, my = pygame.mouse.get_pos()
 
+                if show_logout_prompt:
+                    yes_rect = pygame.Rect(SCREEN_WIDTH // 2 - 130, SCREEN_HEIGHT // 2 + 10, 100, 40)
+                    no_rect = pygame.Rect(SCREEN_WIDTH // 2 + 30, SCREEN_HEIGHT // 2 + 10, 100, 40)
+
+                    if yes_rect.collidepoint(mx, my):
+                        pygame.quit()
+                        os.system("python main.py")
+                        return
+                    elif no_rect.collidepoint(mx, my):
+                        show_logout_prompt = False
+                    continue
+
                 if main_menu_btn.collidepoint(mx, my):
                     pygame.quit();
                     from main import main_menu
                     main_menu()
 
-
                 elif modes_btn.collidepoint(mx, my):
                     show_modes_dropdown = not show_modes_dropdown
 
-
-
                 elif map_btn.collidepoint(mx, my):
-
                     new_map = dropdown_map_selection(screen, info_font)
-
                     if new_map:
                         global_map_path = new_map
-
-                        # Load new map and collision mask
-
                         display_map = pygame.image.load(global_map_path).convert_alpha()
-
                         collision_map = display_map.copy()
-
                         collision_map.set_colorkey(LightGreen)
-
                         collision_mask = pygame.mask.from_surface(collision_map)
-
-                        # Load new map metadata
-
                         metadata = load_map_metadata(global_map_path)
-
-                        # Set the new finish point based on the new map's metadata
-
                         finish_point = metadata["finish"] if metadata and "finish" in metadata else None
-
-                        # Reset car to the starting position on the new map
-
                         drag_car = Car(initial_pos=[SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2], surface=selected_surface)
-
-                        starting_position = drag_and_drop_starting_position(screen, info_font, collision_mask,
-                                                                            display_map, drag_car)
-
-                        # Initialize other variables and reset state
-
+                        starting_position = drag_and_drop_starting_position(screen, info_font, collision_mask, display_map, drag_car)
                         current_checkpoint = starting_position.copy()
-
                         initial_dragged_position = starting_position.copy()
-
                         car = Car(initial_pos=starting_position.copy(), surface=selected_surface)
-
                         car.update(display_map, collision_mask)
-
-                        # Reset the state for collisions, checkpoints, etc.
-
                         collision_count = 0
-
                         checkpoint_used_count = 0
-
                         car_finished = False
-
                         show_retry_button = False
-
                         show_finish_message = False
-
                         finish_msg_surface = None
-
                         start_time = pygame.time.get_ticks()
-
-
-
 
                 elif quit_btn.collidepoint(mx, my):
                     pygame.quit(); sys.exit()
+
+                elif logout_btn.collidepoint(mx, my):
+                    show_logout_prompt = True
 
                 elif change_car_btn.collidepoint(mx, my):
                     car, car_index = change_car(car_images, car_index, current_checkpoint)
@@ -198,36 +177,21 @@ def main(map_path=None, respawn_pos=None, user_id=None, username="Guest"):
                 elif show_retry_button and retry_btn.collidepoint(mx, my):
                     return main(map_path=global_map_path, respawn_pos=initial_dragged_position, user_id=user_id, username=username)
 
-
                 elif show_modes_dropdown:
-
                     dropdown_y = modes_btn.bottom
-
                     for i, label in enumerate(["Self-Driving", "Manual", "Race"]):
-
                         rect = pygame.Rect(modes_btn.left, dropdown_y + i * button_height, button_width, button_height)
-
                         if rect.collidepoint(mx, my):
-
                             pygame.quit()
-
                             import main
-
                             if label == "Self-Driving":
-
                                 main.run_selected_mode("auto", user_id, username)
-
                             elif label == "Manual":
-
                                 main.run_selected_mode("manual", user_id, username)
-
                             elif label == "Race":
-
                                 main.run_selected_mode("race", user_id, username)
-
                             sys.exit()
-
-                    show_modes_dropdown = False  # hide dropdown after click
+                    show_modes_dropdown = False
 
         if not car_finished:
             keys = pygame.key.get_pressed()
@@ -281,19 +245,17 @@ def main(map_path=None, respawn_pos=None, user_id=None, username="Guest"):
                 show_finish_message = True
                 show_retry_button = True
                 print(">>> Saving score for user_id:", user_id)
-
                 save_score(user_id, global_map_path, total_time, collision_count, checkpoint_used_count)
-
-
                 msg = f"Finished in {total_time:.2f}s | Collisions: {collision_count} | Checkpoints: {checkpoint_used_count}"
                 finish_msg_surface = info_font.render(msg, True, (0, 0, 255))
 
         draw_button(main_menu_btn, "Main Menu", main_menu_btn.collidepoint(*mouse_pos))
         draw_button(modes_btn, "Modes", modes_btn.collidepoint(*mouse_pos))
         draw_button(map_btn, "Map", map_btn.collidepoint(*mouse_pos))
-        draw_button(quit_btn, "Quit", quit_btn.collidepoint(*mouse_pos))
+        draw_button(logout_btn, "Logout", logout_btn.collidepoint(*mouse_pos))
         draw_button(change_car_btn, "Cars", change_car_btn.collidepoint(*mouse_pos))
         draw_button(add_checkpoint_btn, "Checkpoint", add_checkpoint_btn.collidepoint(*mouse_pos))
+        draw_button(quit_btn, "Quit", quit_btn.collidepoint(*mouse_pos))
         if show_retry_button:
             draw_button(retry_btn, "Retry", retry_btn.collidepoint(*mouse_pos))
 
@@ -309,6 +271,21 @@ def main(map_path=None, respawn_pos=None, user_id=None, username="Guest"):
             overlay.fill((200, 200, 200))
             screen.blit(overlay, (0, 0))
             screen.blit(finish_msg_surface, (SCREEN_WIDTH // 2 - finish_msg_surface.get_width() // 2, SCREEN_HEIGHT // 2 - 50))
+
+
+
+        if show_logout_prompt:
+            overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+            overlay.set_alpha(180)
+            overlay.fill((0, 0, 0))
+            screen.blit(overlay, (0, 0))
+            confirm_box = pygame.Rect(SCREEN_WIDTH // 2 - 200, SCREEN_HEIGHT // 2 - 100, 400, 180)
+            pygame.draw.rect(screen, (255, 255, 255), confirm_box)
+            pygame.draw.rect(screen, (0, 0, 0), confirm_box, 2)
+            prompt_text = info_font.render("Are you sure you want to logout?", True, (0, 0, 0))
+            screen.blit(prompt_text, (confirm_box.centerx - prompt_text.get_width() // 2, confirm_box.y + 30))
+            draw_button(yes_btn, "Yes", yes_btn.collidepoint(*mouse_pos))
+            draw_button(no_btn, "No", no_btn.collidepoint(*mouse_pos))
 
         pygame.display.flip()
         clock.tick(60)

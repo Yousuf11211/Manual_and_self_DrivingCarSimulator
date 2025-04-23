@@ -184,7 +184,14 @@ def main():
     else:  # guest
         user_id, username = None, "Guest"
 
+    def run_main_menu(user_id, username):
+        return_value = True
+        while return_value:
+            mode = main_menu(user_id, username)
+            return mode
+
     mode = run_main_menu(user_id, username)
+
 
     if mode == "manual":
         run_manual(map_path=None, user_id=user_id, username=username)
@@ -194,11 +201,7 @@ def main():
         run_selfdriving(generations=args.generations)
 
 # For entry screen flow only — keeps full menu return modular
-def run_main_menu(user_id, username):
-    return_value = True
-    while return_value:
-        mode = main_menu(user_id, username)
-        return mode
+
 
 
 if __name__ == "__main__":

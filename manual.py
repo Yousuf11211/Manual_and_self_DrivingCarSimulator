@@ -175,7 +175,14 @@ def main(map_path=None, respawn_pos=None, user_id=None, username="Guest"):
                     checkpoint_used_count += 1
 
                 elif show_retry_button and retry_btn.collidepoint(mx, my):
-                    return main(map_path=global_map_path, respawn_pos=initial_dragged_position, user_id=user_id, username=username)
+                    car = Car(initial_pos=initial_dragged_position.copy(), surface=selected_surface)
+                    car.update(display_map, collision_mask)
+                    start_time = pygame.time.get_ticks()
+                    collision_count = 0
+                    checkpoint_used_count = 0
+                    car_finished = False
+                    show_retry_button = False
+                    show_finish_message = False
 
                 elif show_modes_dropdown:
                     dropdown_y = modes_btn.bottom

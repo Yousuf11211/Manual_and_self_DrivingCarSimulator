@@ -78,9 +78,10 @@ def get_user_login(screen, font, background, bg_x, bg_y):
     from db import get_user, get_top_scores
 
     field_font = pygame.font.SysFont("arial", 28, bold=True)  # Custom font for fields
+    title_font = pygame.font.SysFont("arial", 48, bold=True)
 
-    username_box = pygame.Rect(120, 280, 300, 40)
-    password_box = pygame.Rect(120, 340, 300, 40)
+    username_box = pygame.Rect(300, 280, 220, 40)
+    password_box = pygame.Rect(300, 340, 220, 40)
 
     color_inactive = pygame.Color('lightskyblue3')
     color_active = pygame.Color('dodgerblue2')
@@ -93,11 +94,14 @@ def get_user_login(screen, font, background, bg_x, bg_y):
     error_msg = ''
     rankings = get_top_scores(100)
 
+    show_forgot_password = False
+
     while True:
         screen.blit(background, (bg_x, bg_y))
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                pygame.quit(); sys.exit()
+                pygame.quit()
+                sys.exit()
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 if username_box.collidepoint(event.pos):
                     username_active = True
@@ -105,10 +109,18 @@ def get_user_login(screen, font, background, bg_x, bg_y):
                 elif password_box.collidepoint(event.pos):
                     password_active = True
                     username_active = False
-                else:
-                    username_active = password_active = False
+                elif show_forgot_password and forgot_rect.collidepoint(event.pos):
+                    handle_forgot_password(screen, font, background, bg_x, bg_y)
+                    username = ""
+                    password = ""
+                    error_msg = ""
+                    show_forgot_password = False
+                # else:
+                #     username_active = password_active = False
+
                 username_color = color_active if username_active else color_inactive
                 password_color = color_active if password_active else color_inactive
+
             elif event.type == pygame.KEYDOWN:
                 if username_active and not password_active:
                     if event.key == pygame.K_RETURN:
@@ -128,9 +140,9 @@ def get_user_login(screen, font, background, bg_x, bg_y):
                         else:
                             existing_id = get_user(username.strip())
                             if existing_id:
-                                error_msg = "❌ Incorrect password."
+                                error_msg = "Incorrect password."
+                                show_forgot_password = True
                             else:
-                                from auth import register_user
                                 username = register_user(screen, font, background, bg_x, bg_y)
                                 user_id = get_user(username, password.strip())
                                 return user_id, username
@@ -140,26 +152,44 @@ def get_user_login(screen, font, background, bg_x, bg_y):
                         password += event.unicode
 
         # Title
-        prompt = field_font.render("Login", True, (0, 0, 0))
-        screen.blit(prompt, (140, 220))
+        prompt = title_font.render("Login page", True, (0, 0, 0))
+        screen.blit(prompt, (750, 100))
 
-        # Input text
+        blink = pygame.time.get_ticks() // 500 % 2
+
+        # Username label (left side)
+        username_label = field_font.render("Username", True, (0, 0, 0))
+        screen.blit(username_label, (username_box.x - username_label.get_width() - 20, username_box.y + 5))
+
+        # Username field
         username_surface = field_font.render(username, True, username_color)
-        password_surface = field_font.render('*' * len(password), True, password_color)
-
-        username_box.w = max(300, username_surface.get_width() + 10)
-        password_box.w = max(300, password_surface.get_width() + 10)
-
         screen.blit(username_surface, (username_box.x + 5, username_box.y + 10))
-        screen.blit(password_surface, (password_box.x + 5, password_box.y + 10))
+        if username_active and blink:
+            cursor_x = username_box.x + 5 + username_surface.get_width()
+            pygame.draw.line(screen, (0, 0, 0), (cursor_x, username_box.y + 10), (cursor_x, username_box.y + 35), 2)
         pygame.draw.rect(screen, username_color, username_box, 2)
+
+        # Password label (left side)
+        password_label = field_font.render("Password", True, (0, 0, 0))
+        screen.blit(password_label, (password_box.x - password_label.get_width() - 20, password_box.y + 5))
+
+        # Password field
+        password_surface = field_font.render('*' * len(password), True, password_color)
+        screen.blit(password_surface, (password_box.x + 5, password_box.y + 10))
+        if password_active and blink:
+            cursor_x = password_box.x + 5 + password_surface.get_width()
+            pygame.draw.line(screen, (0, 0, 0), (cursor_x, password_box.y + 10), (cursor_x, password_box.y + 35), 2)
         pygame.draw.rect(screen, password_color, password_box, 2)
 
         # Error message
         if error_msg:
             error_surface = field_font.render(error_msg, True, (255, 0, 0))
             screen.blit(error_surface, (SCREEN_WIDTH // 2 - error_surface.get_width() // 2, password_box.y + 50))
-
+        if show_forgot_password:
+            forgot_font = pygame.font.SysFont("arial", 22, bold=True)
+            forgot_text = forgot_font.render("Forgot Password?", True, (0, 0, 255))
+            forgot_rect = forgot_text.get_rect(center=(password_box.x + 110, password_box.y + 90))
+            screen.blit(forgot_text, forgot_rect)
         pygame.display.flip()
         pygame.time.Clock().tick(30)
 
@@ -167,18 +197,23 @@ def register_user(screen, font, background, bg_x, bg_y):
     import pygame
     from db import create_user, get_user
 
-    field_font = pygame.font.SysFont("arial", 28, bold=True)  # NEW FONT
-
-    start_y = 180
-    box_width = 300
+    start_y = 250
+    box_width = 220
     box_height = 40
-    gap = 70
-    left_x = 120
+    gap = 60
+    left_x = 300
+
+    field_font = pygame.font.SysFont("arial", 28, bold=True)  # NEW FONT
+    title_font = pygame.font.SysFont("arial", 48, bold=True)
+
+
+
 
     input_box_user = pygame.Rect(left_x, start_y + gap * 0, box_width, box_height)
     input_box_pass = pygame.Rect(left_x, start_y + gap * 1, box_width, box_height)
-    question_box = pygame.Rect(left_x, start_y + gap * 2, box_width, box_height)
-    input_box_answ = pygame.Rect(left_x, start_y + gap * 3, box_width, box_height)
+    input_box_confirmpass = pygame.Rect(left_x, start_y + gap * 2, box_width, box_height)
+    question_box = pygame.Rect(left_x, start_y + gap * 3, box_width, box_height)
+    input_box_answ = pygame.Rect(left_x, start_y + gap * 4, box_width, box_height)
 
     color_inactive = pygame.Color('lightskyblue3')
     color_active = pygame.Color('dodgerblue2')
@@ -186,17 +221,19 @@ def register_user(screen, font, background, bg_x, bg_y):
 
     username = ""
     password = ""
+    confirm_password = ""
     answer = ""
     selected_index = None
     error_msg = ""
 
     questions = [
-        "What is your favorite color?",
-        "What is your pet's name?",
-        "What city were you born in?",
-        "What is your favorite food?"
+        "Favorite color?",
+        "Pet's name?",
+        "Birth City?",
+        "Favorite food?"
     ]
     dropdown_open = False
+
 
     while True:
         screen.blit(background, (bg_x, bg_y))
@@ -209,6 +246,9 @@ def register_user(screen, font, background, bg_x, bg_y):
                     dropdown_open = False
                 elif input_box_pass.collidepoint(event.pos):
                     active_field = "pass"
+                    dropdown_open = False
+                elif input_box_confirmpass.collidepoint(event.pos):
+                    active_field = "confirmpass"
                     dropdown_open = False
                 elif input_box_answ.collidepoint(event.pos):
                     active_field = "answ"
@@ -233,73 +273,200 @@ def register_user(screen, font, background, bg_x, bg_y):
                         else:
                             dropdown_open = False
             elif event.type == pygame.KEYDOWN:
-                if active_field == "user":
-                    if event.key == pygame.K_BACKSPACE:
+                if event.key == pygame.K_RETURN:
+                    if active_field == "user":
+                        active_field = "pass"
+                    elif active_field == "pass":
+                        active_field = "confirmpass"
+                    elif active_field == "confirmpass":
+                        active_field = "answ" if selected_index is not None else None
+                    elif active_field == "answ":
+                        if username.strip() and password.strip() and confirm_password.strip() and selected_index is not None and answer.strip():
+                            if password != confirm_password:
+                                error_msg = "Passwords do not match."
+                            elif get_user(username.strip()) is not None:
+                                error_msg = "Username already exists!"
+                            else:
+                                create_user(username.strip(), password.strip(), questions[selected_index],
+                                            answer.strip())
+                                return username.strip()
+                        else:
+                            error_msg = "All fields are required."
+
+                elif event.key == pygame.K_BACKSPACE:
+                    if active_field == "user":
                         username = username[:-1]
-                    else:
-                        username += event.unicode
-                elif active_field == "pass":
-                    if event.key == pygame.K_BACKSPACE:
+                    elif active_field == "pass":
                         password = password[:-1]
-                    else:
-                        password += event.unicode
-                elif active_field == "answ":
-                    if event.key == pygame.K_BACKSPACE:
+                    elif active_field == "confirmpass":
+                        confirm_password = confirm_password[:-1]
+                    elif active_field == "answ":
                         answer = answer[:-1]
-                    else:
+
+                elif len(event.unicode) == 1 and event.unicode.isprintable():
+                    if active_field == "user":
+                        username += event.unicode
+                    elif active_field == "pass":
+                        password += event.unicode
+                    elif active_field == "confirmpass":
+                        confirm_password += event.unicode
+                    elif active_field == "answ":
                         answer += event.unicode
 
-                if event.key == pygame.K_RETURN:
-                    if username.strip() and password.strip() and selected_index is not None and answer.strip():
-                        if get_user(username.strip()) is not None:
-                            error_msg = "Username already exists!"
-                        else:
-                            create_user(
-                                username.strip(),
-                                password.strip(),
-                                questions[selected_index],
-                                answer.strip()
-                            )
-                            return username.strip()
-                    else:
-                        error_msg = "All fields are required."
-
         # Title
-        prompt = field_font.render("Register New Account", True, (0, 0, 0))
-        screen.blit(prompt, (left_x, start_y - 80))
+        prompt = title_font.render("Registration Page", True, (0, 0, 0))
+        screen.blit(prompt, (650, 80))
 
         # Input fields
         fields = [
             (input_box_user, username, active_field == "user"),
-            (input_box_pass, '*' * len(password), active_field == "pass")
+            (input_box_pass, '*' * len(password), active_field == "pass"),
+            (input_box_confirmpass, '*' * len(confirm_password), active_field == "confirmpass")
         ]
+
         if selected_index is not None:
             fields.append((input_box_answ, answer, active_field == "answ"))
 
+        blink = pygame.time.get_ticks() // 500 % 2  # 0 or 1 every 500ms
+
         for rect, text, is_active in fields:
             color = color_active if is_active else color_inactive
-            txt_surface = field_font.render(text, True, (255, 255, 255))
-            rect.w = max(300, txt_surface.get_width() + 10)
-            screen.blit(txt_surface, (rect.x + 5, rect.y + 12))
+            text_color = color  # Match border and text color
+            txt_surface = field_font.render(text, True, text_color)
+            rect.w = box_width
+            screen.blit(txt_surface, (rect.x + 5, rect.y + 6))  # shift up
+
+            # Blinking cursor
+            if is_active and blink:
+                cursor_x = rect.x + 5 + txt_surface.get_width()
+                cursor_y = rect.y + 10
+                pygame.draw.line(screen, (0, 0, 0), (cursor_x, cursor_y), (cursor_x, cursor_y + 25), 2)
+
             pygame.draw.rect(screen, color, rect, 2)
 
         # Dropdown
         draw_dropdown(screen, question_box, field_font, questions, selected_index, dropdown_open)
 
         # Labels
-        labels = ["Username", "Password", "Choose a question"]
-        boxes = [input_box_user, input_box_pass, question_box]
+        labels = ["Username", "Password", "Confirm Password", "Security Question"]
+        boxes = [input_box_user, input_box_pass, input_box_confirmpass, question_box]
         if selected_index is not None:
             labels.append("Your Answer")
             boxes.append(input_box_answ)
 
         for label, box in zip(labels, boxes):
-            label_surface = field_font.render(label, True, (180, 180, 180))
-            screen.blit(label_surface, (box.x, box.y - 35))
+            label_surface = field_font.render(label, True, (0, 0, 0))
+            screen.blit(label_surface, (box.x - label_surface.get_width() - 20, box.y + 5))
 
         if error_msg:
             error_surface = field_font.render(error_msg, True, (255, 0, 0))
             screen.blit(error_surface, (SCREEN_WIDTH // 2 - error_surface.get_width() // 2, SCREEN_HEIGHT // 2 + 130))
 
+
         pygame.display.flip()
         pygame.time.Clock().tick(30)
+
+def handle_forgot_password(screen, font, background, bg_x, bg_y):
+    from db import get_user_question, verify_security_answer, update_user_password
+
+    field_font = pygame.font.SysFont("arial", 28, bold=True)
+    title_font = pygame.font.SysFont("arial", 48, bold=True)
+
+    username = ""
+    answer = ""
+    new_password = ""
+    stage = "username"  # stages: username -> question -> new_password
+    error_msg = ""
+    security_question = None
+    success_msg = ""
+
+    username_box = pygame.Rect(300, 280, 300, 40)
+    answer_box = pygame.Rect(300, 340, 300, 40)
+    password_box = pygame.Rect(300, 400, 300, 40)
+
+    color_inactive = pygame.Color('lightskyblue3')
+    color_active = pygame.Color('dodgerblue2')
+    active_field = "username"
+
+    while True:
+        screen.blit(background, (bg_x, bg_y))
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit(); sys.exit()
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_RETURN:
+                    if stage == "username":
+                        if username.strip():
+                            security_question = get_user_question(username.strip())
+                            if security_question:
+                                stage = "question"
+                                active_field = "answer"
+                            else:
+                                error_msg = "Username not found."
+                    elif stage == "question":
+                        if answer.strip():
+                            if verify_security_answer(username.strip(), answer.strip()):
+                                stage = "new_password"
+                                active_field = "new_password"
+                            else:
+                                error_msg = "Incorrect answer."
+                    elif stage == "new_password":
+                        if new_password.strip():
+                            update_user_password(username.strip(), new_password.strip())
+                            success_msg = "Password updated successfully!"
+                            return  # exit to login screen
+                elif event.key == pygame.K_BACKSPACE:
+                    if active_field == "username":
+                        username = username[:-1]
+                    elif active_field == "answer":
+                        answer = answer[:-1]
+                    elif active_field == "new_password":
+                        new_password = new_password[:-1]
+                else:
+                    if event.unicode.isprintable():
+                        if active_field == "username":
+                            username += event.unicode
+                        elif active_field == "answer":
+                            answer += event.unicode
+                        elif active_field == "new_password":
+                            new_password += event.unicode
+
+        # Title
+        prompt = title_font.render("Forgot Password", True, (0, 0, 0))
+        screen.blit(prompt, (600, 80))
+
+        # Fields
+        if stage == "username":
+            pygame.draw.rect(screen, color_active, username_box, 2)
+            input_surface = field_font.render(username, True, color_active)
+            screen.blit(input_surface, (username_box.x + 5, username_box.y + 10))
+            label = field_font.render("Enter your username:", True, (0, 0, 0))
+            screen.blit(label, (username_box.x - label.get_width() - 10, username_box.y + 5))
+
+        elif stage == "question":
+            pygame.draw.rect(screen, color_active, answer_box, 2)
+            input_surface = field_font.render(answer, True, color_active)
+            screen.blit(input_surface, (answer_box.x + 5, answer_box.y + 10))
+            label = field_font.render(security_question, True, (0, 0, 0))
+            screen.blit(label, (answer_box.x - label.get_width() - 10, answer_box.y + 5))
+
+        elif stage == "new_password":
+            pygame.draw.rect(screen, color_active, password_box, 2)
+            input_surface = field_font.render('*' * len(new_password), True, color_active)
+            screen.blit(input_surface, (password_box.x + 5, password_box.y + 10))
+            label = field_font.render("New password:", True, (0, 0, 0))
+            screen.blit(label, (password_box.x - label.get_width() - 10, password_box.y + 5))
+
+        if error_msg:
+            error_surface = field_font.render(error_msg, True, (255, 0, 0))
+            screen.blit(error_surface, (SCREEN_WIDTH // 2 - error_surface.get_width() // 2, 500))
+
+        if success_msg:
+            success_surface = field_font.render(success_msg, True, (0, 200, 0))
+            screen.blit(success_surface, (SCREEN_WIDTH // 2 - success_surface.get_width() // 2, 550))
+
+        pygame.display.flip()
+        pygame.time.Clock().tick(30)
+
+

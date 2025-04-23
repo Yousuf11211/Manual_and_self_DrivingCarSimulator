@@ -7,6 +7,7 @@ from auth import entry_screen, get_user_login, register_user
 from manual import run_manual
 from race import run_race
 from selfdriving import run_selfdriving
+from db import init_db
 
 # Screen size
 SCREEN_WIDTH = 1500
@@ -156,6 +157,7 @@ def run_selected_mode(mode, user_id=None, username="Guest", generations=1000):
 
 # Main entry
 def main():
+    init_db()
     parser = argparse.ArgumentParser(description="NEAT Car Simulation")
     parser.add_argument('--generations', type=int, default=1000,
                         help="Number of generations to run")
@@ -178,7 +180,7 @@ def main():
     elif action == "register":
         username = register_user(screen, font, background, bg_x, bg_y)
         from db import get_user
-        user_id = get_user(username, None)
+        user_id = get_user(username)
     else:  # guest
         user_id, username = None, "Guest"
 

@@ -96,7 +96,7 @@ def insert_score(user_id, map_name, time_taken, collisions, checkpoints):
     conn.commit()
     conn.close()
 
-def get_top_scores(limit=10):
+def get_top_scores(limit=100):
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute('''
@@ -107,9 +107,19 @@ def get_top_scores(limit=10):
         ORDER BY maps_cleared DESC, total_time ASC
         LIMIT ?
     ''', (limit,))
-    results = cursor.fetchall()
+    rows = cursor.fetchall()
     conn.close()
-    return results
+
+    # Return as list of dictionaries
+    leaderboard = []
+    for rank, row in enumerate(rows, start=1):
+        leaderboard.append({
+            "rank": rank,
+            "username": row[0],
+            "maps_cleared": row[1],
+            "total_time": round(row[2], 2)
+        })
+    return leaderboard
 
 def get_user_scores(user_id):
     conn = sqlite3.connect(DB_PATH)

@@ -12,6 +12,8 @@ from utils import (
     LightGreen, TRACK_WIDTH,
 )
 from changecar import change_car, get_car_images, car_scales
+from db import get_top_scores
+
 
 car_images = get_car_images()
 car_index = 0
@@ -93,6 +95,11 @@ def main(map_path=None, respawn_pos=None, user_id=None, username="Guest"):
     show_modes_dropdown = False
     show_logout_prompt = False
     running = True
+    leaderboard_button = pygame.Rect(add_checkpoint_btn.left - button_width - spacing, top_margin, button_width,
+                                     button_height)
+    show_leaderboard = False
+    leaderboard_data = get_top_scores(limit=100)
+    scroll_offset = 0
 
     def draw_button(rect, text, hover=False):
         color = (255, 255, 255) if hover else (200, 200, 200)
@@ -100,6 +107,52 @@ def main(map_path=None, respawn_pos=None, user_id=None, username="Guest"):
         pygame.draw.rect(screen, (0, 0, 0), rect, 2, border_radius=5)
         label = info_font.render(text, True, (0, 0, 0))
         screen.blit(label, label.get_rect(center=rect.center))
+
+    def draw_leaderboard(screen, data, scroll_offset):
+        box_width, box_height = 600, 400
+        box_x = (SCREEN_WIDTH - box_width) // 2
+        box_y = (SCREEN_HEIGHT - box_height) // 2
+        box = pygame.Rect(box_x, box_y, box_width, box_height)
+
+        # Translucent background
+        overlay = pygame.Surface((box_width, box_height))
+        overlay.set_alpha(180)
+        overlay.fill((240, 240, 240))
+        screen.blit(overlay, (box_x, box_y))
+
+        pygame.draw.rect(screen, (0, 0, 0), box, 2)
+
+        # Title
+        title = info_font.render("Leaderboard", True, (0, 0, 0))
+        screen.blit(title, (box.centerx - title.get_width() // 2, box.y + 10))
+
+        # Table headers
+        headers = ["Rank", "Name", "Maps", "Time"]
+        col_widths = [80, 200, 100, 100]
+        col_x = [box.x + 20, box.x + 100, box.x + 330, box.x + 450]
+        header_y = box.y + 50
+
+        for i, header in enumerate(headers):
+            header_text = info_font.render(header, True, (0, 0, 0))
+            screen.blit(header_text, (col_x[i], header_y))
+
+        # Draw leaderboard rows
+        spacing_y = 30
+        max_visible = 10
+        start_y = header_y + 40
+        end_index = min(len(data), scroll_offset + max_visible)
+
+        for i, entry in enumerate(data[scroll_offset:end_index], start=scroll_offset):
+            row_y = start_y + (i - scroll_offset) * spacing_y
+
+            color = (0, 0, 0)
+            if entry["username"] == username:
+                color = (0, 102, 204)  # Highlight current user
+
+            screen.blit(info_font.render(f"{entry['rank']}", True, color), (col_x[0], row_y))
+            screen.blit(info_font.render(f"{entry['username']}", True, color), (col_x[1], row_y))
+            screen.blit(info_font.render(f"{entry['maps_cleared']}", True, color), (col_x[2], row_y))
+            screen.blit(info_font.render(f"{entry['total_time']}s", True, color), (col_x[3], row_y))
 
     while running:
         screen.fill(LightGreen)
@@ -109,9 +162,18 @@ def main(map_path=None, respawn_pos=None, user_id=None, username="Guest"):
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                pygame.quit(); sys.exit()
+                pygame.quit();
+                sys.exit()
+
+            if event.type == pygame.KEYDOWN and show_leaderboard:
+                if event.key == pygame.K_UP:
+                    scroll_offset = max(scroll_offset - 1, 0)
+                elif event.key == pygame.K_DOWN:
+                    scroll_offset = min(scroll_offset + 1, max(0, len(leaderboard_data) - 10))
+
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 mx, my = pygame.mouse.get_pos()
+                # All your button click logic here...
 
                 if show_logout_prompt:
                     yes_rect = pygame.Rect(SCREEN_WIDTH // 2 - 130, SCREEN_HEIGHT // 2 + 10, 100, 40)
@@ -132,6 +194,10 @@ def main(map_path=None, respawn_pos=None, user_id=None, username="Guest"):
 
                 elif modes_btn.collidepoint(mx, my):
                     show_modes_dropdown = not show_modes_dropdown
+
+                elif leaderboard_button.collidepoint(mx, my):
+                    show_leaderboard = not show_leaderboard
+
 
                 elif map_btn.collidepoint(mx, my):
                     new_map = dropdown_map_selection(screen, info_font)
@@ -253,12 +319,14 @@ def main(map_path=None, respawn_pos=None, user_id=None, username="Guest"):
                 show_retry_button = True
                 print(">>> Saving score for user_id:", user_id)
                 save_score(user_id, global_map_path, total_time, collision_count, checkpoint_used_count)
+                leaderboard_data = get_top_scores(limit=100)
                 msg = f"Finished in {total_time:.2f}s | Collisions: {collision_count} | Checkpoints: {checkpoint_used_count}"
                 finish_msg_surface = info_font.render(msg, True, (0, 0, 255))
 
         draw_button(main_menu_btn, "Main Menu", main_menu_btn.collidepoint(*mouse_pos))
         draw_button(modes_btn, "Modes", modes_btn.collidepoint(*mouse_pos))
         draw_button(map_btn, "Map", map_btn.collidepoint(*mouse_pos))
+        draw_button(leaderboard_button, "Leaderboard", leaderboard_button.collidepoint(*mouse_pos))
         draw_button(logout_btn, "Logout", logout_btn.collidepoint(*mouse_pos))
         draw_button(change_car_btn, "Cars", change_car_btn.collidepoint(*mouse_pos))
         draw_button(add_checkpoint_btn, "Checkpoint", add_checkpoint_btn.collidepoint(*mouse_pos))
@@ -293,6 +361,9 @@ def main(map_path=None, respawn_pos=None, user_id=None, username="Guest"):
             screen.blit(prompt_text, (confirm_box.centerx - prompt_text.get_width() // 2, confirm_box.y + 30))
             draw_button(yes_btn, "Yes", yes_btn.collidepoint(*mouse_pos))
             draw_button(no_btn, "No", no_btn.collidepoint(*mouse_pos))
+
+        if show_leaderboard:
+            draw_leaderboard(screen, leaderboard_data, scroll_offset)
 
         pygame.display.flip()
         clock.tick(60)

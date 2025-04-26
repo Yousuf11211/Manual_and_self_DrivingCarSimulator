@@ -228,3 +228,32 @@ def update_user_password(username, new_password):
     conn.commit()
     conn.close()
 
+def get_all_users():
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("SELECT username FROM users")
+    users = [row[0] for row in cursor.fetchall()]
+    conn.close()
+    return users
+
+def delete_user_by_username(username):
+    if username == "Yousuf":
+        print("Cannot delete Admin user.")
+        return
+
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT id FROM users WHERE username=?", (username,))
+    result = cursor.fetchone()
+
+    if result:
+        user_id = result[0]
+        cursor.execute("DELETE FROM scores WHERE user_id=?", (user_id,))
+        cursor.execute("DELETE FROM user_map_stats WHERE user_id=?", (user_id,))
+        cursor.execute("DELETE FROM user_best_map_scores WHERE user_id=?", (user_id,))
+        cursor.execute("DELETE FROM users WHERE id=?", (user_id,))
+
+    conn.commit()
+    conn.close()
+

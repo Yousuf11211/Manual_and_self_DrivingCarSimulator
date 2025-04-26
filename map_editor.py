@@ -4,6 +4,16 @@ import math
 import json
 from pygame.locals import *
 from PIL import Image
+def get_font(size):
+    return pygame.font.Font("assets/font.ttf", size)
+
+def draw_button(screen, rect, text, font, hover=False):
+    color = (255, 255, 255) if hover else (200, 200, 200)
+    pygame.draw.rect(screen, color, rect, border_radius=5)
+    pygame.draw.rect(screen, (0, 0, 0), rect, 2, border_radius=5)
+    label = font.render(text, True, (0, 0, 0))
+    screen.blit(label, label.get_rect(center=rect.center))
+
 
 # screen setup
 SCREEN_WIDTH = 1500
@@ -210,11 +220,13 @@ def draw_preview_points(surface, pts):
         pygame.draw.circle(surface, GRAY, p, 5)
 
 # start the program
-def main():
+def main(user_id=None, username="Guest", is_admin=False):
     global points, preview_curve, trees_left, trees_right, camera_offset
     running = True
     drawing = False
     font = pygame.font.SysFont("Arial", 20)
+    menu_font = pygame.font.SysFont("Arial", 28)
+    main_menu_btn = pygame.Rect(20, 20, 160, 40)
 
     while running:
         screen.fill(LightGreen)
@@ -234,9 +246,17 @@ def main():
             if event.type == QUIT:
                 running = False
             elif event.type == MOUSEBUTTONDOWN and event.button == 1:
+                if main_menu_btn.collidepoint(pygame.mouse.get_pos()):
+                    pygame.quit()
+                    from main import main_menu
+                    main_menu(user_id, username, is_admin)
+
+                    return
                 drawing = True
                 start_pos = (mouse_x + camera_offset[0], mouse_y + camera_offset[1])
                 points.append(start_pos)
+
+
             elif event.type == MOUSEBUTTONUP and event.button == 1:
                 drawing = False
             elif event.type == KEYDOWN:
@@ -281,6 +301,7 @@ def main():
             for tree in trees_left + trees_right:
                 pygame.draw.circle(screen, GREEN, world_to_screen(tree), 5)
             draw_curve(screen, [world_to_screen(p) for p in preview_curve])
+            draw_button(screen, main_menu_btn, "Main Menu", menu_font, main_menu_btn.collidepoint(mouse_x, mouse_y))
 
             font_large = pygame.font.SysFont("Arial", 30)
             screen.blit(font_large.render("Start", True, YELLOW), (world_to_screen(preview_curve[0])[0], world_to_screen(preview_curve[0])[1] - 40))
@@ -295,6 +316,15 @@ def main():
         clock.tick(60)
 
     pygame.quit()
+def run_map_editor(user_id=None, username="Guest", is_admin=False):
+    pygame.quit()
+    pygame.init()
+    global screen, clock
+    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+    pygame.display.set_caption("Map Editor")
+    clock = pygame.time.Clock()
+    main(user_id, username, is_admin)
 
-if __name__ == "__main__":
-    main()
+
+
+

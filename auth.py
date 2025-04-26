@@ -469,4 +469,8 @@ def handle_forgot_password(screen, font, background, bg_x, bg_y):
         pygame.display.flip()
         pygame.time.Clock().tick(30)
 
+def is_admin(username: str) -> bool:
+    return username.strip().lower() == "yousuf"
+
+
 

@@ -1,9 +1,7 @@
-import neat
-import os
 import sys
 import argparse
 import pygame
-from auth import entry_screen, get_user_login, register_user
+from auth import entry_screen, get_user_login, register_user, is_admin
 from manual import run_manual
 from race import run_race
 from selfdriving import run_selfdriving
@@ -22,12 +20,19 @@ class Button:
         self.base_color = base_color
         self.hovering_color = hovering_color
         self.text_input = text_input
+
         self.text_surf = self.font.render(self.text_input, True, self.base_color)
         self.text_rect = self.text_surf.get_rect(center=(self.x_pos, self.y_pos))
-        self.rect = self.image.get_rect(center=(self.x_pos, self.y_pos))
+
+        if self.image is not None:
+            self.rect = self.image.get_rect(center=(self.x_pos, self.y_pos))
+        else:
+            # If no image, use text rect for button collision
+            self.rect = self.text_surf.get_rect(center=(self.x_pos, self.y_pos))
 
     def update(self, screen):
-        screen.blit(self.image, self.rect)
+        if self.image is not None:
+            screen.blit(self.image, self.rect)
         screen.blit(self.text_surf, self.text_rect)
 
     def checkForInput(self, position):
@@ -38,6 +43,7 @@ class Button:
             self.text_surf = self.font.render(self.text_input, True, self.hovering_color)
         else:
             self.text_surf = self.font.render(self.text_input, True, self.base_color)
+
 
 # Load font
 def get_font(size):
@@ -61,9 +67,134 @@ def splash_screen(screen, font):
             elif event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
+from db import get_all_users, delete_user_by_username
+
+def manage_users_screen(screen):
+    running = True
+
+    field_font = pygame.font.SysFont("arial", 28, bold=True)  # Use same font as login
+    title_font = pygame.font.SysFont("arial", 48, bold=True)
+
+    while running:
+        screen.fill((30, 30, 30))
+
+        users = get_all_users()
+
+        y = 150
+        mouse_pos = pygame.mouse.get_pos()
+
+        # Title (optional)
+        title_text = title_font.render("Manage Users", True, (255, 255, 255))
+        screen.blit(title_text, title_text.get_rect(center=(SCREEN_WIDTH//2, 60)))
+
+        # BACK button
+        back_button = Button(
+            image=None,
+            pos=(100, 50),
+            text_input="Back",
+            font=field_font,
+            base_color="#d7fcd4",
+            hovering_color="White"
+        )
+
+        back_button.changeColor(mouse_pos)
+        back_button.update(screen)
+
+        for username in users:
+            # Username button
+            username_button = Button(
+                image=None,
+                pos=(SCREEN_WIDTH // 2 - 200, y),
+                text_input=username,
+                font=field_font,
+                base_color="#d7fcd4",
+                hovering_color="White"
+            )
+
+            # Remove button text and rectangle
+            remove_text = field_font.render("Remove", True, (255, 0, 0))  # RED text
+            remove_rect = remove_text.get_rect(center=(SCREEN_WIDTH // 2 + 200, y))
+
+            # Detect hover
+            if remove_rect.collidepoint(mouse_pos):
+                background_color = (150, 150, 150)	  # light grey when hovered
+            else:
+                background_color = (255, 255, 255)  # white normally
+
+            # Draw background
+            pygame.draw.rect(screen, background_color, remove_rect.inflate(20, 10))  # bigger rectangle
+
+            # Draw text on top
+            screen.blit(remove_text, remove_rect)
+
+            username_button.changeColor(mouse_pos)
+            username_button.update(screen)
+
+            if pygame.mouse.get_pressed()[0] and remove_rect.collidepoint(mouse_pos):
+                confirm_delete_user(screen, username)
+
+            y += 100
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                if back_button.checkForInput(mouse_pos):
+                    return
+
+        pygame.display.update()
+def confirm_delete_user(screen, username):
+    clock = pygame.time.Clock()
+    font = pygame.font.SysFont("Arial", 30, bold=True)
+    running = True
+
+    yes_btn = pygame.Rect(SCREEN_WIDTH // 2 - 130, SCREEN_HEIGHT // 2 + 10, 100, 40)
+    no_btn = pygame.Rect(SCREEN_WIDTH // 2 + 30, SCREEN_HEIGHT // 2 + 10, 100, 40)
+
+    def draw_button(rect, text, hover=False):
+        color = (255, 255, 255) if hover else (200, 200, 200)
+        pygame.draw.rect(screen, color, rect, border_radius=5)
+        pygame.draw.rect(screen, (0, 0, 0), rect, 2, border_radius=5)
+        label = font.render(text, True, (0, 0, 0))
+        screen.blit(label, label.get_rect(center=rect.center))
+
+    while running:
+        mouse_pos = pygame.mouse.get_pos()
+        screen.fill((0, 0, 0))  # Full black background
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+        overlay.set_alpha(180)
+        overlay.fill((0, 0, 0))
+        screen.blit(overlay, (0, 0))
+
+        confirm_box = pygame.Rect(SCREEN_WIDTH // 2 - 200, SCREEN_HEIGHT // 2 - 100, 400, 180)
+        pygame.draw.rect(screen, (255, 255, 255), confirm_box)
+        pygame.draw.rect(screen, (0, 0, 0), confirm_box, 2)
+
+        prompt_text = font.render(f"Delete user '{username}'?", True, (0, 0, 0))
+        screen.blit(prompt_text, (confirm_box.centerx - prompt_text.get_width() // 2, confirm_box.y + 30))
+
+        draw_button(yes_btn, "Yes", hover=yes_btn.collidepoint(mouse_pos))
+        draw_button(no_btn, "No", hover=no_btn.collidepoint(mouse_pos))
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                if yes_btn.collidepoint(mouse_pos):
+                    from db import delete_user_by_username
+                    delete_user_by_username(username)
+                    return
+                elif no_btn.collidepoint(mouse_pos):
+                    return
+
+        pygame.display.flip()
+        clock.tick(60)
 
 # Main menu screen (standalone)
-def main_menu(user_id=None, username="Guest"):
+def main_menu(user_id=None, username="Guest", is_admin=False):
     pygame.init()
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     pygame.display.set_caption("Main Menu")
@@ -96,26 +227,68 @@ def main_menu(user_id=None, username="Guest"):
             base_color="#d7fcd4",
             hovering_color="White"
         )
+        if is_admin:
+            map_editor_button = Button(
+                image=pygame.image.load("assets/Simulate.png"),
+                pos=(SCREEN_WIDTH // 2 + 200, SCREEN_HEIGHT // 2 + 50),  # same y, right of Race Mode
+                text_input="Map Editor",
+                font=get_font(18),
+                base_color="#d7fcd4",
+                hovering_color="White"
+            )
+
+        # Adjust race mode button position based on user type
+        race_button_x = SCREEN_WIDTH // 2 - 200
+        race_button_y = SCREEN_HEIGHT // 2 + 50
+
+        if not is_admin:
+            race_button_x += 200  # Shift right by 100 pixels for normal users
+
         race_button = Button(
             image=pygame.image.load("assets/Simulate.png"),
-            pos=(SCREEN_WIDTH//2, SCREEN_HEIGHT//2 + 50),
+            pos=(race_button_x, race_button_y),
             text_input="Race Mode",
             font=get_font(18),
             base_color="#d7fcd4",
             hovering_color="White"
         )
+
+        # Default Quit button position
+        quit_button_x = SCREEN_WIDTH // 2
+        quit_button_y = SCREEN_HEIGHT // 2 + 190
+
+        if is_admin:
+            quit_button_x -= 200  # Move 100 pixels more to the left for Admin users
+
         quit_button = Button(
             image=pygame.image.load("assets/Quit.png"),
-            pos=(SCREEN_WIDTH//2, SCREEN_HEIGHT//2 + 190),
+            pos=(quit_button_x, quit_button_y),
             text_input="QUIT",
             font=get_font(18),
             base_color="#d7fcd4",
             hovering_color="White"
         )
 
+        if is_admin:
+            users_button = Button(
+                image=pygame.image.load("assets/Simulate.png"),
+                pos=(SCREEN_WIDTH // 2 + 200, SCREEN_HEIGHT // 2 + 190),  # beside Quit button
+                text_input="Users",
+                font=get_font(18),
+                base_color="#d7fcd4",
+                hovering_color="White"
+            )
+        if is_admin:
+            users_button.changeColor(mouse_pos)
+            users_button.update(screen)
+
         for btn in (self_driving_button, manual_button, race_button, quit_button):
             btn.changeColor(mouse_pos)
             btn.update(screen)
+
+        if is_admin:
+            map_editor_button.changeColor(mouse_pos)
+            map_editor_button.update(screen)
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -130,11 +303,17 @@ def main_menu(user_id=None, username="Guest"):
                     from manual import run_manual
                     pygame.quit()
                     run_manual(user_id=user_id, username=username)
+                if is_admin and users_button.checkForInput(mouse_pos):
+                    manage_users_screen(screen)
 
                 if race_button.checkForInput(mouse_pos):
                     from race import run_race
                     pygame.quit()
                     run_race(user_id=user_id, username=username)
+                if is_admin and map_editor_button.checkForInput(mouse_pos):
+                    import map_editor
+                    pygame.quit()
+                    map_editor.run_map_editor(user_id=user_id, username=username, is_admin=True)
 
                 if quit_button.checkForInput(mouse_pos):
                     pygame.quit()
@@ -184,10 +363,12 @@ def main():
     else:  # guest
         user_id, username = None, "Guest"
 
+    admin_flag = is_admin(username)
+
     def run_main_menu(user_id, username):
         return_value = True
         while return_value:
-            mode = main_menu(user_id, username)
+            mode = main_menu(user_id, username, admin_flag)
             return mode
 
     mode = run_main_menu(user_id, username)

@@ -22,14 +22,15 @@ def save_score(user_id, map_name, time_taken, collisions, checkpoints):
     if user_id:
         insert_score(user_id, map_name, time_taken, collisions, checkpoints)
 
-def main(map_path=None, respawn_pos=None, user_id=None, username="Guest"):
+def main(map_path=None, respawn_pos=None, user_id=None, username="Guest", is_admin=False):
     init_db()
     global car_index, car_images
     print(">>> USER ID:", user_id, "USERNAME:", username)
 
     pygame.init()
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-    pygame.display.set_caption("Manual Car Control")
+    admin_status = "Admin" if is_admin else "Not Admin"
+    pygame.display.set_caption(f"Manual Car Control | User: {username} | {admin_status}")
 
     background = pygame.image.load("assets/login.png").convert()
     background = pygame.transform.scale(background, (SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -256,7 +257,8 @@ def main(map_path=None, respawn_pos=None, user_id=None, username="Guest"):
                 if main_menu_btn.collidepoint(mx, my):
                     pygame.quit()
                     from main import main_menu
-                    main_menu()
+                    main_menu(user_id=user_id, username=username, is_admin=is_admin)
+
 
                 elif modes_btn.collidepoint(mx, my):
                     show_modes_dropdown = not show_modes_dropdown
@@ -320,20 +322,35 @@ def main(map_path=None, respawn_pos=None, user_id=None, username="Guest"):
                     show_retry_button = False
                     show_finish_message = False
 
+
                 elif show_modes_dropdown:
+
                     dropdown_y = modes_btn.bottom
+
                     for i, label in enumerate(["Self-Driving", "Manual", "Race"]):
+
                         rect = pygame.Rect(modes_btn.left, dropdown_y + i * button_height, button_width, button_height)
+
                         if rect.collidepoint(mx, my):
-                            pygame.quit()
+
+                            pygame.display.quit()  # Only close the Pygame window, don't exit the program
+
                             import main
+
                             if label == "Self-Driving":
-                                main.run_selected_mode("auto", user_id, username)
+
+                                main.run_selected_mode("auto", user_id=user_id, username=username, is_admin=is_admin)
+
                             elif label == "Manual":
-                                main.run_selected_mode("manual", user_id, username)
+
+                                main.run_selected_mode("manual", user_id=user_id, username=username, is_admin=is_admin)
+
                             elif label == "Race":
-                                main.run_selected_mode("race", user_id, username)
-                            sys.exit()
+
+                                main.run_selected_mode("race", user_id=user_id, username=username, is_admin=is_admin)
+
+                            return  # clean exit after switching
+
                     show_modes_dropdown = False
 
                 if show_leaderboard_dropdown:
@@ -342,9 +359,8 @@ def main(map_path=None, respawn_pos=None, user_id=None, username="Guest"):
 
                         if rect.collidepoint(mx, my):
                             leaderboard_mode = label.lower()
-
+                            scroll_offset = 0  # <-- reset scroll when changing mode
                             show_leaderboard = True
-
                             show_leaderboard_dropdown = False
 
         if not car_finished:
@@ -372,6 +388,7 @@ def main(map_path=None, respawn_pos=None, user_id=None, username="Guest"):
         offset_y = car.center[1] - SCREEN_HEIGHT // 2
         screen.blit(display_map, (0, 0), pygame.Rect(offset_x, offset_y, SCREEN_WIDTH, SCREEN_HEIGHT))
         car.draw(screen, info_font, offset=(offset_x, offset_y), draw_radars=False)
+
 
         if not car.get_alive():
             if not car_finished:
@@ -471,5 +488,5 @@ def main(map_path=None, respawn_pos=None, user_id=None, username="Guest"):
     pygame.quit()
 
 
-def run_manual(map_path=None, respawn_pos=None, user_id=None, username="Guest"):
-    main(map_path, respawn_pos, user_id, username)
+def run_manual(map_path=None, respawn_pos=None, user_id=None, username="Guest", is_admin=False):
+    main(map_path, respawn_pos, user_id, username, is_admin)

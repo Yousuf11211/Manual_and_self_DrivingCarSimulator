@@ -42,10 +42,12 @@ def run_ai_generation(genomes, config, display_map, collision_mask, start_pos, a
     return nets, cars
 
 
-def race(user_id=None, username="Guest"):
+def race(user_id=None, username="Guest", is_admin=False):
     pygame.init()
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-    pygame.display.set_caption(f"Race: Manual vs Evolving AI | User: {username}")
+
+    admin_status = "Admin" if is_admin else "Not Admin"
+    pygame.display.set_caption(f"Race: Manual vs Evolving AI | User: {username} | {admin_status}")
 
     ai_car_surface = pygame.image.load(os.path.join("cars", "car7.png")).convert_alpha()
     ai_car_surface = pygame.transform.scale(ai_car_surface, (75, 75))
@@ -156,7 +158,8 @@ def race(user_id=None, username="Guest"):
                     if main_menu_btn.collidepoint(mx, my):
                         from main import main_menu
                         pygame.quit()
-                        main_menu()
+                        main_menu(user_id=user_id, username=username, is_admin=is_admin)
+
 
                     elif modes_btn.collidepoint(mx, my):
                         show_modes_dropdown = not show_modes_dropdown
@@ -190,15 +193,18 @@ def race(user_id=None, username="Guest"):
                             rect = pygame.Rect(modes_btn.left, dropdown_y + i * button_height, button_width,
                                                button_height)
                             if rect.collidepoint(mx, my):
-                                pygame.quit()
+                                pygame.display.quit()  # ❗ Only close the Pygame display, not the whole program
                                 import main
                                 if label == "Self-Driving":
-                                    main.run_selected_mode("auto", user_id, username)
+                                    main.run_selected_mode("auto", user_id=user_id, username=username,
+                                                           is_admin=is_admin)
                                 elif label == "Manual":
-                                    main.run_selected_mode("manual", user_id, username)
+                                    main.run_selected_mode("manual", user_id=user_id, username=username,
+                                                           is_admin=is_admin)
                                 elif label == "Race":
-                                    main.run_selected_mode("race", user_id, username)
-                                sys.exit()
+                                    main.run_selected_mode("race", user_id=user_id, username=username,
+                                                           is_admin=is_admin)
+                                return  # ❗ Do not use sys.exit()
                         show_modes_dropdown = False
 
         # Manual car controls
@@ -352,5 +358,5 @@ def race(user_id=None, username="Guest"):
         pygame.display.flip()
 
 
-def run_race(user_id=None, username="Guest"):
-    race(user_id, username)
+def run_race(user_id=None, username="Guest", is_admin=False):
+    race(user_id, username, is_admin)

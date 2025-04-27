@@ -388,23 +388,26 @@ def main_menu(user_id=None, username="Guest", is_admin=False):
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 if self_driving_button.checkForInput(mouse_pos):
                     from selfdriving import run_selfdriving
-                    pygame.quit()
-                    run_selfdriving()
+                    pygame.display.quit()  # ✅ only close the window
+                    run_selfdriving(user_id=user_id, username=username, is_admin=is_admin)
+
                 if manual_button.checkForInput(mouse_pos):
                     from manual import run_manual
-                    pygame.quit()
-                    run_manual(user_id=user_id, username=username)
-                if is_admin and users_button.checkForInput(mouse_pos):
-                    manage_users_screen(screen)
+                    pygame.display.quit()
+                    run_manual(user_id=user_id, username=username, is_admin=is_admin)
 
                 if race_button.checkForInput(mouse_pos):
                     from race import run_race
-                    pygame.quit()
-                    run_race(user_id=user_id, username=username)
+                    pygame.display.quit()
+                    run_race(user_id=user_id, username=username, is_admin=is_admin)
+
                 if is_admin and map_editor_button.checkForInput(mouse_pos):
                     import map_editor
-                    pygame.quit()
+                    pygame.display.quit()
                     map_editor.run_map_editor(user_id=user_id, username=username, is_admin=True)
+
+                if is_admin and users_button.checkForInput(mouse_pos):
+                    manage_users_screen(screen)
 
                 if quit_button.checkForInput(mouse_pos):
                     pygame.quit()
@@ -413,17 +416,17 @@ def main_menu(user_id=None, username="Guest", is_admin=False):
         pygame.display.update()
 
 # Mode selection from dropdown use
-def run_selected_mode(mode, user_id=None, username="Guest", generations=1000):
+def run_selected_mode(mode, user_id=None, username="Guest", generations=1000, is_admin=False):
     if mode == "manual":
         from manual import run_manual
-        run_manual(map_path=None, user_id=user_id, username=username)
+        run_manual(map_path=None, user_id=user_id, username=username, is_admin=is_admin)
     elif mode == "race":
         from race import run_race
-        run_race(user_id=user_id, username=username)
-
+        run_race(user_id=user_id, username=username, is_admin=is_admin)
     elif mode == "auto":
         from selfdriving import run_selfdriving
-        run_selfdriving(generations=generations)
+        run_selfdriving(generations=generations, user_id=user_id, username=username, is_admin=is_admin)
+
 
 # Main entry
 def main():
@@ -464,13 +467,13 @@ def main():
 
     mode = run_main_menu(user_id, username)
 
-
     if mode == "manual":
-        run_manual(map_path=None, user_id=user_id, username=username)
+        run_manual(map_path=None, user_id=user_id, username=username, is_admin=admin_flag)
     elif mode == "race":
-        run_race()
+        run_race(user_id=user_id, username=username, is_admin=admin_flag)
     else:
-        run_selfdriving(generations=args.generations)
+        run_selfdriving(generations=args.generations, user_id=user_id, username=username, is_admin=admin_flag)
+
 
 if __name__ == "__main__":
     main()

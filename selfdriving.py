@@ -12,7 +12,7 @@ from utils import (
 )
 
 
-def run_auto_mode(genomes, config, user_id=None, username="Guest"):
+def run_auto_mode(genomes, config, user_id=None, username="Guest", is_admin=False):
     if not hasattr(run_auto_mode, "global_map_path"):
         run_auto_mode.global_map_path = None
     if not hasattr(run_auto_mode, "starting_position"):
@@ -21,10 +21,15 @@ def run_auto_mode(genomes, config, user_id=None, username="Guest"):
         run_auto_mode.generation = 0
     if not hasattr(run_auto_mode, "last_gen_crashed"):
         run_auto_mode.last_gen_crashed = False
+    if not hasattr(run_auto_mode, "switch_mode"):
+        run_auto_mode.switch_mode = None  # 🔥 Add this line
 
     pygame.init()
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-    pygame.display.set_caption(f"Self-Driving Mode | User: {username}")
+
+    admin_status = "Admin" if is_admin else "Not Admin"
+    pygame.display.set_caption(f"Self-Driving Mode | User: {username} | {admin_status}")
+
     clock = pygame.time.Clock()
     info_font = pygame.font.SysFont("Arial", 30)
 
@@ -95,6 +100,8 @@ def run_auto_mode(genomes, config, user_id=None, username="Guest"):
 
     while True:
         screen.fill(LightGreen)
+
+
         mouse_pos = pygame.mouse.get_pos()
         yes_btn = pygame.Rect(SCREEN_WIDTH // 2 - 130, SCREEN_HEIGHT // 2 + 10, 100, 40)
         no_btn = pygame.Rect(SCREEN_WIDTH // 2 + 30, SCREEN_HEIGHT // 2 + 10, 100, 40)
@@ -116,8 +123,11 @@ def run_auto_mode(genomes, config, user_id=None, username="Guest"):
                 else:
                     if main_menu_btn.collidepoint(mx, my):
                         from main import main_menu
-                        pygame.quit()
-                        main_menu()
+                        pygame.display.quit()  # Only close the display window
+                        main_menu(user_id=user_id, username=username, is_admin=is_admin)
+                        return
+
+
 
                     elif modes_btn.collidepoint(mx, my):
                         show_modes_dropdown = not show_modes_dropdown
@@ -154,22 +164,36 @@ def run_auto_mode(genomes, config, user_id=None, username="Guest"):
                         pygame.quit();
                         sys.exit()
 
+
+
                     elif show_modes_dropdown:
+
                         dropdown_y = modes_btn.bottom
+
                         for i, label in enumerate(["Self-Driving", "Manual", "Race"]):
+
                             rect = pygame.Rect(modes_btn.left, dropdown_y + i * button_height, button_width,
                                                button_height)
+
                             if rect.collidepoint(mx, my):
-                                pygame.quit()
-                                import main
+
                                 if label == "Self-Driving":
-                                    main.run_selected_mode("auto", user_id, username)
+
+                                    run_auto_mode.switch_mode = "auto"
+
                                 elif label == "Manual":
-                                    main.run_selected_mode("manual", user_id, username)
+
+                                    run_auto_mode.switch_mode = "manual"
+
                                 elif label == "Race":
-                                    main.run_selected_mode("race", user_id, username)
-                                sys.exit()
+
+                                    run_auto_mode.switch_mode = "race"
+
+                                break  # just break inside this event
+
                         show_modes_dropdown = False
+        if run_auto_mode.switch_mode:
+            raise StopIteration("User requested mode switch")
 
         if not simulation_paused:
             remaining_cars = 0
@@ -264,8 +288,7 @@ def run_auto_mode(genomes, config, user_id=None, username="Guest"):
         clock.tick(simulation_fps)
 
 
-def run_selfdriving(generations=1000, user_id=None, username="Guest"):
-    # Always reset these to force map selection
+def run_selfdriving(generations=1000, user_id=None, username="Guest", is_admin=False):
     run_auto_mode.global_map_path = None
     run_auto_mode.starting_position = None
 
@@ -284,4 +307,15 @@ def run_selfdriving(generations=1000, user_id=None, username="Guest"):
     population.add_reporter(neat.StdOutReporter(True))
     stats = neat.StatisticsReporter()
     population.add_reporter(stats)
-    population.run(lambda genomes, config: run_auto_mode(genomes, config, user_id, username), generations)
+
+    try:
+        population.run(lambda genomes, config: run_auto_mode(genomes, config, user_id, username, is_admin), generations)
+    except StopIteration:
+        # Mode switch requested
+        pass
+
+    if run_auto_mode.switch_mode:
+        from main import run_selected_mode
+        mode_to_run = run_auto_mode.switch_mode
+        run_auto_mode.switch_mode = None
+        run_selected_mode(mode_to_run, user_id=user_id, username=username, generations=generations, is_admin=is_admin)

@@ -6,7 +6,7 @@ from manual import run_manual
 from race import run_race
 from selfdriving import run_selfdriving
 from db import init_db
-
+import os
 # Screen size
 SCREEN_WIDTH = 1500
 SCREEN_HEIGHT = 800
@@ -69,23 +69,49 @@ def splash_screen(screen, font):
                 sys.exit()
 from db import get_all_users, delete_user_by_username
 
+
+def delete_map(map_name):
+    import os
+    map_path = os.path.join('maps', f"{map_name}.png")
+    metadata_path = os.path.join('startfinish', f"{map_name}_metadata.json")
+
+    if os.path.exists(map_path):
+        os.remove(map_path)
+    if os.path.exists(metadata_path):
+        os.remove(metadata_path)
+
+
+def get_all_maps():
+    maps_folder = "maps"
+    return [f[:-4] for f in os.listdir(maps_folder) if f.endswith(".png")]
+def confirm_delete_map(screen, map_name):
+    # You can show a simple "Are you sure?" popup here
+    delete_map(map_name)
+
+
 def manage_users_screen(screen):
     running = True
-
-    field_font = pygame.font.SysFont("arial", 28, bold=True)  # Use same font as login
+    field_font = pygame.font.SysFont("arial", 28, bold=True)
     title_font = pygame.font.SysFont("arial", 48, bold=True)
+
+    scroll_offset_users = 0
+    scroll_offset_maps = 0
+    max_visible = 5
+    scroll_speed = 30  # How much to move per scroll
 
     while running:
         screen.fill((30, 30, 30))
 
         users = get_all_users()
+        maps = get_all_maps()
 
-        y = 150
+        user_y_start = 150
+        map_y_start = 150
         mouse_pos = pygame.mouse.get_pos()
 
-        # Title (optional)
-        title_text = title_font.render("Manage Users", True, (255, 255, 255))
-        screen.blit(title_text, title_text.get_rect(center=(SCREEN_WIDTH//2, 60)))
+        # Title
+        title_text = title_font.render("Manage Users and Maps", True, (255, 255, 255))
+        screen.blit(title_text, title_text.get_rect(center=(SCREEN_WIDTH // 2, 60)))
 
         # BACK button
         back_button = Button(
@@ -96,54 +122,119 @@ def manage_users_screen(screen):
             base_color="#d7fcd4",
             hovering_color="White"
         )
-
         back_button.changeColor(mouse_pos)
         back_button.update(screen)
 
-        for username in users:
-            # Username button
+        # -------- USERS SECTION (LEFT) --------
+        users_title = title_font.render("Users", True, (255, 255, 255))
+        screen.blit(users_title, (SCREEN_WIDTH // 4 - users_title.get_width() // 2, 100))
+
+        user_buttons = []  # store remove buttons for users
+
+        start_user_index = scroll_offset_users // scroll_speed
+        for idx, username in enumerate(users[start_user_index:start_user_index + max_visible]):
+            y_pos = user_y_start + idx * 60
+
             username_button = Button(
                 image=None,
-                pos=(SCREEN_WIDTH // 2 - 200, y),
+                pos=(SCREEN_WIDTH // 4 - 100, y_pos),
                 text_input=username,
                 font=field_font,
                 base_color="#d7fcd4",
                 hovering_color="White"
             )
 
-            # Remove button text and rectangle
-            remove_text = field_font.render("Remove", True, (255, 0, 0))  # RED text
-            remove_rect = remove_text.get_rect(center=(SCREEN_WIDTH // 2 + 200, y))
+            remove_text = field_font.render("Remove", True, (255, 0, 0))
+            remove_rect = remove_text.get_rect(center=(SCREEN_WIDTH // 4 + 100, y_pos))
 
-            # Detect hover
             if remove_rect.collidepoint(mouse_pos):
-                background_color = (150, 150, 150)	  # light grey when hovered
+                background_color = (150, 150, 150)
             else:
-                background_color = (255, 255, 255)  # white normally
+                background_color = (255, 255, 255)
 
-            # Draw background
-            pygame.draw.rect(screen, background_color, remove_rect.inflate(20, 10))  # bigger rectangle
-
-            # Draw text on top
+            pygame.draw.rect(screen, background_color, remove_rect.inflate(20, 10))
             screen.blit(remove_text, remove_rect)
 
             username_button.changeColor(mouse_pos)
             username_button.update(screen)
 
-            if pygame.mouse.get_pressed()[0] and remove_rect.collidepoint(mouse_pos):
-                confirm_delete_user(screen, username)
+            user_buttons.append((remove_rect, username))  # save button and username for checking clicks
 
-            y += 100
+        # -------- MAPS SECTION (RIGHT) --------
+        maps_title = title_font.render("Maps", True, (255, 255, 255))
+        screen.blit(maps_title, (SCREEN_WIDTH * 3 // 4 - maps_title.get_width() // 2, 100))
 
+        map_buttons = []  # store delete buttons for maps
+
+        start_map_index = scroll_offset_maps // scroll_speed
+        for idx, map_name in enumerate(maps[start_map_index:start_map_index + max_visible]):
+            y_pos = map_y_start + idx * 60
+
+            map_button = Button(
+                image=None,
+                pos=(SCREEN_WIDTH * 3 // 4 - 100, y_pos),
+                text_input=map_name,
+                font=field_font,
+                base_color="#d7fcd4",
+                hovering_color="White"
+            )
+
+            delete_text = field_font.render("Delete", True, (255, 0, 0))
+            delete_rect = delete_text.get_rect(center=(SCREEN_WIDTH * 3 // 4 + 100, y_pos))
+
+            if delete_rect.collidepoint(mouse_pos):
+                background_color = (150, 150, 150)
+            else:
+                background_color = (255, 255, 255)
+
+            pygame.draw.rect(screen, background_color, delete_rect.inflate(20, 10))
+            screen.blit(delete_text, delete_rect)
+
+            map_button.changeColor(mouse_pos)
+            map_button.update(screen)
+
+            map_buttons.append((delete_rect, map_name))  # save button and map for checking clicks
+
+        # -------- Event Handling --------
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
-            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                if back_button.checkForInput(mouse_pos):
-                    return
+
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 1:  # Left click
+                    if back_button.checkForInput(mouse_pos):
+                        return
+
+                    # Check if clicked any user remove button
+                    for remove_rect, username in user_buttons:
+                        if remove_rect.collidepoint(mouse_pos):
+                            confirm_delete_user(screen, username)
+                            break  # after deleting, break out
+
+                    # Check if clicked any map delete button
+                    for delete_rect, map_name in map_buttons:
+                        if delete_rect.collidepoint(mouse_pos):
+                            confirm_delete_map(screen, map_name)
+                            break
+
+                # Scroll users (mouse wheel)
+                if event.button == 4:  # Mouse wheel up
+                    if mouse_pos[0] < SCREEN_WIDTH // 2:  # Left side (users)
+                        scroll_offset_users = max(scroll_offset_users - scroll_speed, 0)
+                    else:  # Right side (maps)
+                        scroll_offset_maps = max(scroll_offset_maps - scroll_speed, 0)
+                if event.button == 5:  # Mouse wheel down
+                    if mouse_pos[0] < SCREEN_WIDTH // 2:  # Left side (users)
+                        if (scroll_offset_users // scroll_speed) + max_visible < len(users):
+                            scroll_offset_users += scroll_speed
+                    else:  # Right side (maps)
+                        if (scroll_offset_maps // scroll_speed) + max_visible < len(maps):
+                            scroll_offset_maps += scroll_speed
 
         pygame.display.update()
+
+
 def confirm_delete_user(screen, username):
     clock = pygame.time.Clock()
     font = pygame.font.SysFont("Arial", 30, bold=True)
@@ -380,10 +471,6 @@ def main():
         run_race()
     else:
         run_selfdriving(generations=args.generations)
-
-# For entry screen flow only — keeps full menu return modular
-
-
 
 if __name__ == "__main__":
     main()

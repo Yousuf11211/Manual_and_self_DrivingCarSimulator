@@ -152,6 +152,7 @@ def generate_trees(curve, side_offset, spacing=TREE_SPACING):
 def save_map(curve, left_trees, right_trees):
     if not curve:
         return
+
     left_edge = compute_offset_curve(curve, ROAD_WIDTH / 2)
     right_edge = compute_offset_curve(curve, -ROAD_WIDTH / 2)
     all_points = curve + left_edge + right_edge + left_trees + right_trees
@@ -184,29 +185,46 @@ def save_map(curve, left_trees, right_trees):
 
     map_data = pygame.image.tostring(map_surface, 'RGBA')
     img = Image.frombytes('RGBA', (width, height), map_data)
+
     maps_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "maps")
     if not os.path.exists(maps_dir):
         os.makedirs(maps_dir)
 
-    existing_files = os.listdir(maps_dir)
-    numbers = [int(f[3:-4]) for f in existing_files if f.startswith("map") and f.endswith(".png") and f[3:-4].isdigit()]
-    next_number = max(numbers) + 1 if numbers else 0
+    startfinish_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "startfinish")
+    if not os.path.exists(startfinish_dir):
+        os.makedirs(startfinish_dir)
+
+    # Find next available map number
+    existing_maps = [f for f in os.listdir(maps_dir) if f.startswith("map") and f.endswith(".png")]
+    numbers = []
+    for filename in existing_maps:
+        name_without_ext = filename[:-4]  # remove ".png"
+        if name_without_ext == "map":
+            numbers.append(0)
+        elif name_without_ext.startswith("map") and name_without_ext[3:].isdigit():
+            numbers.append(int(name_without_ext[3:]))
+
+    next_number = 0
+    while next_number in numbers:
+        next_number += 1
+
+    # Now generate file names
     file_name = "map.png" if next_number == 0 else f"map{next_number}.png"
     file_path = os.path.join(maps_dir, file_name)
     img.save(file_path)
-    print(f"Map saved as {file_path}")
+
+    print(f"✅ Map image saved at: {file_path}")
 
     metadata = {
         "start": world_to_map(curve[0]),
         "finish": world_to_map(curve[-1]),
     }
-    startfinish_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "startfinish")
-    if not os.path.exists(startfinish_dir):
-        os.makedirs(startfinish_dir)
-    metadata_path = os.path.join(startfinish_dir, os.path.splitext(file_name)[0] + "_metadata.json")
+    metadata_filename = "map_metadata.json" if next_number == 0 else f"map{next_number}_metadata.json"
+    metadata_path = os.path.join(startfinish_dir, metadata_filename)
     with open(metadata_path, "w") as f:
         json.dump(metadata, f)
-    print(f"Metadata saved as {metadata_path}")
+
+    print(f"✅ Metadata JSON saved at: {metadata_path}")
 
 # show the road lines
 def draw_curve(surface, curve):
@@ -260,8 +278,18 @@ def main(user_id=None, username="Guest", is_admin=False):
             elif event.type == MOUSEBUTTONUP and event.button == 1:
                 drawing = False
             elif event.type == KEYDOWN:
-                if event.key == K_s and preview_curve:
-                    save_map(preview_curve, trees_left, trees_right)
+                if event.key == K_s:
+                    if len(points) >= 2:
+                        # Recompute the preview curve and trees just before saving
+                        pts = points if len(points) >= 4 else [points[0]] + points + [points[-1]]
+                        preview_curve = catmull_rom_spline(pts, nPoints=30)
+                        trees_left = generate_trees(preview_curve, ROAD_WIDTH / 2 + 10)
+                        trees_right = generate_trees(preview_curve, -ROAD_WIDTH / 2 - 10)
+
+                        save_map(preview_curve, trees_left, trees_right)
+                    else:
+                        print("Not enough points to save a map!")
+
                 elif event.key == K_c:
                     points.clear()
                     preview_curve.clear()

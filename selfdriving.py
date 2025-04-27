@@ -57,6 +57,7 @@ def run_auto_mode(genomes, config, user_id=None, username="Guest", is_admin=Fals
     show_logout_prompt = False
     show_modes_dropdown = False
     simulation_paused = False
+    pause_reason = None  # ⭐ Add this
 
     if run_auto_mode.global_map_path is None:
         run_auto_mode.global_map_path = select_map(screen, info_font)
@@ -129,8 +130,14 @@ def run_auto_mode(genomes, config, user_id=None, username="Guest", is_admin=Fals
 
 
 
+
                     elif modes_btn.collidepoint(mx, my):
+
                         show_modes_dropdown = not show_modes_dropdown
+                        simulation_paused = show_modes_dropdown
+                        pause_reason = "dropdown" if show_modes_dropdown else None  # ⭐ add this
+
+
 
                     elif logout_btn.collidepoint(mx, my):
                         show_logout_prompt = True
@@ -264,7 +271,14 @@ def run_auto_mode(genomes, config, user_id=None, username="Guest", is_admin=Fals
             overlay.set_alpha(180)
             overlay.fill((240, 240, 240))
             screen.blit(overlay, (0, 0))
-            msg = info_font.render("Car reached the finish line!", True, (0, 0, 255))
+
+            if pause_reason == "finish":
+                msg = info_font.render("Car reached the finish line!", True, (0, 0, 255))
+            elif pause_reason == "dropdown":
+                msg = info_font.render("Simulation Paused", True, (0, 0, 0))
+            else:
+                msg = info_font.render("Simulation Paused", True, (0, 0, 0))  # default fallback
+
             screen.blit(msg, (SCREEN_WIDTH // 2 - msg.get_width() // 2, SCREEN_HEIGHT // 2 - 20))
 
         if show_logout_prompt:

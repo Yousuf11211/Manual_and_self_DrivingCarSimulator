@@ -133,9 +133,12 @@ def main(map_path=None, respawn_pos=None, user_id=None, username="Guest", is_adm
         box_x = (SCREEN_WIDTH - box_width) // 2
         box_y = (SCREEN_HEIGHT - box_height) // 2
         box = pygame.Rect(box_x, box_y, box_width, box_height)
-        # Close button top-right
-        close_btn = pygame.Rect(box.right - 40, box.y + 10, 30, 30)
-        draw_close_button(close_btn, close_btn.collidepoint(mouse_pos))
+
+        # Draw rounded shadow
+        shadow = pygame.Surface((box_width + 10, box_height + 10), pygame.SRCALPHA)
+        shadow.fill((0, 0, 0, 0))  # Transparent background
+        pygame.draw.rect(shadow, (0, 0, 0, 100), shadow.get_rect(), border_radius=15)
+        screen.blit(shadow, (box_x - 5, box_y - 5))
 
         # Translucent background
         overlay = pygame.Surface((box_width, box_height))
@@ -143,7 +146,9 @@ def main(map_path=None, respawn_pos=None, user_id=None, username="Guest", is_adm
         overlay.fill((240, 240, 240))
         screen.blit(overlay, (box_x, box_y))
 
-        pygame.draw.rect(screen, (0, 0, 0), box, 2)
+        pygame.draw.rect(screen, (0, 0, 0), box, 2, border_radius=10)
+        close_btn = pygame.Rect(box.right - 40, box.y + 10, 30, 30)
+        draw_close_button(close_btn, close_btn.collidepoint(mouse_pos))
 
         # Title
         title = info_font.render("Leaderboard", True, (0, 0, 0))
@@ -159,23 +164,44 @@ def main(map_path=None, respawn_pos=None, user_id=None, username="Guest", is_adm
             header_text = info_font.render(header, True, (0, 0, 0))
             screen.blit(header_text, (col_x[i], header_y))
 
-        # Draw leaderboard rows
-        spacing_y = 30
-        max_visible = 5
+        spacing_y = 35  # instead of 30
         start_y = header_y + 40
-        end_index = min(len(data), scroll_offset + max_visible)
+        end_index = min(len(data), scroll_offset + 5)
 
         for i, entry in enumerate(data[scroll_offset:end_index], start=scroll_offset):
             row_y = start_y + (i - scroll_offset) * spacing_y
+            row_rect = pygame.Rect(box.x + 10, row_y - 5, box_width - 20, spacing_y)
+
+            # Draw highlight
+            if entry["rank"] == 1:
+                color_bg = (255, 215, 0, 100)
+            elif entry["rank"] == 2:
+                color_bg = (173, 216, 230, 200)
+            elif entry["rank"] == 3:
+                color_bg = (205, 127, 50, 100)
+            else:
+                color_bg = None
+
+            if color_bg:
+                highlight = pygame.Surface((row_rect.width, row_rect.height), pygame.SRCALPHA)
+                highlight.fill(color_bg)
+                screen.blit(highlight, (row_rect.x, row_rect.y))
+
+        for i, entry in enumerate(data[scroll_offset:end_index], start=scroll_offset):
+            row_y = start_y + (i - scroll_offset) * spacing_y
+            row_rect = pygame.Rect(box.x + 10, row_y - 5, box_width - 20, spacing_y)
 
             color = (0, 0, 0)
             if entry["username"] == username:
-                color = (0, 102, 204)  # Highlight current user
+                color = (0, 102, 204)
 
-            screen.blit(info_font.render(f"{entry['rank']}", True, color), (col_x[0], row_y))
-            screen.blit(info_font.render(f"{entry['username']}", True, color), (col_x[1], row_y))
-            screen.blit(info_font.render(f"{entry['maps_cleared']}", True, color), (col_x[2], row_y))
-            screen.blit(info_font.render(f"{entry['total_time']}s", True, color), (col_x[3], row_y))
+            font_height = info_font.get_height()
+            center_y = row_rect.centery - font_height // 2
+
+            screen.blit(info_font.render(f"{entry['rank']}", True, color), (col_x[0], center_y))
+            screen.blit(info_font.render(f"{entry['username']}", True, color), (col_x[1], center_y))
+            screen.blit(info_font.render(f"{entry['maps_cleared']}", True, color), (col_x[2], center_y))
+            screen.blit(info_font.render(f"{entry['total_time']}s", True, color), (col_x[3], center_y))
 
     def draw_personal_leaderboard(screen, data, scroll_offset):
         box_width = 700
@@ -186,20 +212,31 @@ def main(map_path=None, respawn_pos=None, user_id=None, username="Guest", is_adm
         box_x = (SCREEN_WIDTH - box_width) // 2
         box_y = (SCREEN_HEIGHT - box_height) // 2
         box = pygame.Rect(box_x, box_y, box_width, box_height)
-        # Close button top-right
-        # Close button top-right
+
+        # --- Step 1: Shadow behind box ---
+        shadow = pygame.Surface((box_width + 10, box_height + 10), pygame.SRCALPHA)
+        shadow.fill((0, 0, 0, 0))  # Transparent background
+        pygame.draw.rect(shadow, (0, 0, 0, 100), shadow.get_rect(), border_radius=15)
+        screen.blit(shadow, (box_x - 5, box_y - 5))
+
+        # --- Step 2: Translucent rounded background ---
+        overlay = pygame.Surface((box_width, box_height), pygame.SRCALPHA)
+        overlay.fill((240, 240, 240, 180))  # Light gray translucent
+        pygame.draw.rect(overlay, (240, 240, 240, 180), overlay.get_rect(), border_radius=10)
+        screen.blit(overlay, (box_x, box_y))
+
+        # --- Step 3: Rounded black border ---
+        pygame.draw.rect(screen, (0, 0, 0), box, 2, border_radius=10)
+
+        # --- Step 4: Close button ---
         close_btn = pygame.Rect(box.right - 40, box.y + 10, 30, 30)
         draw_close_button(close_btn, close_btn.collidepoint(mouse_pos))
 
-        overlay = pygame.Surface((box_width, box_height))
-        overlay.set_alpha(180)
-        overlay.fill((240, 240, 240))
-        screen.blit(overlay, (box_x, box_y))
-        pygame.draw.rect(screen, (0, 0, 0), box, 2)
-
+        # --- Step 5: Title ---
         title = info_font.render("Personal Stats", True, (0, 0, 0))
         screen.blit(title, (box.centerx - title.get_width() // 2, box.y + 10))
 
+        # --- Step 6: Table headers ---
         headers = ["Map", "Times", "Collisions", "Total Time"]
         col_x = [box.x + 20, box.x + 250, box.x + 400, box.x + 560]
         header_y = box.y + 50
@@ -208,20 +245,32 @@ def main(map_path=None, respawn_pos=None, user_id=None, username="Guest", is_adm
             header_text = info_font.render(header, True, (0, 0, 0))
             screen.blit(header_text, (col_x[i], header_y))
 
-        spacing_y = 30
-        max_visible = 5
+        # --- Step 7: Row backgrounds ---
         start_y = header_y + 40
-        end_index = min(len(data), scroll_offset + max_visible)
+        end_index = min(len(data), scroll_offset + 5)
 
         for i, entry in enumerate(data[scroll_offset:end_index], start=scroll_offset):
             row_y = start_y + (i - scroll_offset) * spacing_y
+            row_rect = pygame.Rect(box.x + 10, row_y - 5, box_width - 20, spacing_y)
+
+            highlight = pygame.Surface((row_rect.width, row_rect.height), pygame.SRCALPHA)
+            highlight.fill((220, 220, 220, 100))  # Light gray transparent
+            screen.blit(highlight, (row_rect.x, row_rect.y))
+
+        # --- Step 8: Row text ---
+        for i, entry in enumerate(data[scroll_offset:end_index], start=scroll_offset):
+            row_y = start_y + (i - scroll_offset) * spacing_y
+
+            text_offset_y = 5  # small adjustment for perfect vertical centering
+
             map_name_clean = entry["map_name"].replace("maps/", "").replace("maps\\", "").replace(".png", "")
-
-            screen.blit(info_font.render(map_name_clean, True, (0, 0, 0)), (col_x[0], row_y))
-
-            screen.blit(info_font.render(str(entry["times_played"]), True, (0, 0, 0)), (col_x[1], row_y))
-            screen.blit(info_font.render(str(entry["total_collisions"]), True, (0, 0, 0)), (col_x[2], row_y))
-            screen.blit(info_font.render(f"{entry['total_time']}s", True, (0, 0, 0)), (col_x[3], row_y))
+            screen.blit(info_font.render(map_name_clean, True, (0, 0, 0)), (col_x[0], row_y + text_offset_y))
+            screen.blit(info_font.render(str(entry["times_played"]), True, (0, 0, 0)),
+                        (col_x[1], row_y + text_offset_y))
+            screen.blit(info_font.render(str(entry["total_collisions"]), True, (0, 0, 0)),
+                        (col_x[2], row_y + text_offset_y))
+            screen.blit(info_font.render(f"{entry['total_time']}s", True, (0, 0, 0)),
+                        (col_x[3], row_y + text_offset_y))
 
     while running:
         screen.fill(LightGreen)

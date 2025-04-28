@@ -85,8 +85,11 @@ def get_all_maps():
     maps_folder = "maps"
     return [f[:-4] for f in os.listdir(maps_folder) if f.endswith(".png")]
 def confirm_delete_map(screen, map_name):
-    # You can show a simple "Are you sure?" popup here
+    from db import delete_map_from_db
+
     delete_map(map_name)
+    delete_map_from_db(f"maps/{map_name}.png")
+
 
 
 def manage_users_screen(screen):

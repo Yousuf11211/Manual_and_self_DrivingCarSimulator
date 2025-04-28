@@ -236,6 +236,38 @@ def get_all_users():
     conn.close()
     return users
 
+def delete_map_from_db(map_name):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    # Normalize both forward and backward slashes
+    map_variants = [map_name, map_name.replace("/", "\\"), map_name.replace("\\", "/")]
+
+    # Delete from scores
+    cursor.execute(
+        f"DELETE FROM scores WHERE map_name IN ({','.join(['?']*len(map_variants))})",
+        map_variants
+    )
+
+    # Delete from user_map_stats
+    cursor.execute(
+        f"DELETE FROM user_map_stats WHERE map_name IN ({','.join(['?']*len(map_variants))})",
+        map_variants
+    )
+
+    # Delete from user_best_map_scores
+    cursor.execute(
+        f"DELETE FROM user_best_map_scores WHERE map_name IN ({','.join(['?']*len(map_variants))})",
+        map_variants
+    )
+
+    conn.commit()
+    conn.close()
+
+    print(f"Deleted map '{map_name}' from all tables.")
+
+
+
 def delete_user_by_username(username):
     if username == "Yousuf":
         print("Cannot delete Admin user.")

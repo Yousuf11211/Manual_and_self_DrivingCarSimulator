@@ -301,6 +301,10 @@ def main_menu(user_id=None, username="Guest", is_admin=False):
         menu_text = get_font(100).render("MAIN MENU", True, "#b68f40")
         menu_rect = menu_text.get_rect(center=(SCREEN_WIDTH//2, 100))
         screen.blit(menu_text, menu_rect)
+        # Greet the user
+        hi_text = get_font(40).render(f"Hi, {username}!", True, "#d7fcd4")
+        hi_rect = hi_text.get_rect(center=(SCREEN_WIDTH // 2, 180))
+        screen.blit(hi_text, hi_rect)
 
         self_driving_button = Button(
             image=pygame.image.load("assets/Simulate.png"),

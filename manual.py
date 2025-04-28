@@ -125,7 +125,11 @@ def main(map_path=None, respawn_pos=None, user_id=None, username="Guest", is_adm
         screen.blit(label, label.get_rect(center=rect.center))
 
     def draw_leaderboard(screen, data, scroll_offset):
-        box_width, box_height = 600, 400
+        box_width = 600
+        rows_visible = min(5, len(data))
+        spacing_y = 30
+        header_height = 90
+        box_height = header_height + rows_visible * spacing_y + 20
         box_x = (SCREEN_WIDTH - box_width) // 2
         box_y = (SCREEN_HEIGHT - box_height) // 2
         box = pygame.Rect(box_x, box_y, box_width, box_height)
@@ -157,7 +161,7 @@ def main(map_path=None, respawn_pos=None, user_id=None, username="Guest", is_adm
 
         # Draw leaderboard rows
         spacing_y = 30
-        max_visible = 10
+        max_visible = 5
         start_y = header_y + 40
         end_index = min(len(data), scroll_offset + max_visible)
 
@@ -174,10 +178,15 @@ def main(map_path=None, respawn_pos=None, user_id=None, username="Guest", is_adm
             screen.blit(info_font.render(f"{entry['total_time']}s", True, color), (col_x[3], row_y))
 
     def draw_personal_leaderboard(screen, data, scroll_offset):
-        box_width, box_height = 700, 400
+        box_width = 700
+        rows_visible = min(5, len(data))
+        spacing_y = 30
+        header_height = 90
+        box_height = header_height + rows_visible * spacing_y + 20
         box_x = (SCREEN_WIDTH - box_width) // 2
         box_y = (SCREEN_HEIGHT - box_height) // 2
         box = pygame.Rect(box_x, box_y, box_width, box_height)
+        # Close button top-right
         # Close button top-right
         close_btn = pygame.Rect(box.right - 40, box.y + 10, 30, 30)
         draw_close_button(close_btn, close_btn.collidepoint(mouse_pos))
@@ -200,13 +209,16 @@ def main(map_path=None, respawn_pos=None, user_id=None, username="Guest", is_adm
             screen.blit(header_text, (col_x[i], header_y))
 
         spacing_y = 30
-        max_visible = 10
+        max_visible = 5
         start_y = header_y + 40
         end_index = min(len(data), scroll_offset + max_visible)
 
         for i, entry in enumerate(data[scroll_offset:end_index], start=scroll_offset):
             row_y = start_y + (i - scroll_offset) * spacing_y
-            screen.blit(info_font.render(entry["map_name"], True, (0, 0, 0)), (col_x[0], row_y))
+            map_name_clean = entry["map_name"].replace("maps/", "").replace("maps\\", "").replace(".png", "")
+
+            screen.blit(info_font.render(map_name_clean, True, (0, 0, 0)), (col_x[0], row_y))
+
             screen.blit(info_font.render(str(entry["times_played"]), True, (0, 0, 0)), (col_x[1], row_y))
             screen.blit(info_font.render(str(entry["total_collisions"]), True, (0, 0, 0)), (col_x[2], row_y))
             screen.blit(info_font.render(f"{entry['total_time']}s", True, (0, 0, 0)), (col_x[3], row_y))
@@ -222,26 +234,59 @@ def main(map_path=None, respawn_pos=None, user_id=None, username="Guest", is_adm
                 pygame.quit()
                 sys.exit()
 
+            # Handle scrolling with keyboard arrows
             if event.type == pygame.KEYDOWN and show_leaderboard:
+                if leaderboard_mode == "complete":
+                    data_length = len(leaderboard_data)
+                elif leaderboard_mode == "personal":
+                    data_length = len(personal_scores)
+                else:
+                    data_length = 0
+
                 if event.key == pygame.K_UP:
                     scroll_offset = max(scroll_offset - 1, 0)
                 elif event.key == pygame.K_DOWN:
-                    scroll_offset = min(scroll_offset + 1, max(0, len(leaderboard_data) - 10))
+                    scroll_offset = min(scroll_offset + 1, max(0, data_length - 5))
 
-            elif event.type == pygame.MOUSEBUTTONDOWN:
+            # Handle scrolling with mouse wheel
+            if event.type == pygame.MOUSEWHEEL and show_leaderboard:
+                if leaderboard_mode == "complete":
+                    data_length = len(leaderboard_data)
+                elif leaderboard_mode == "personal":
+                    data_length = len(personal_scores)
+                else:
+                    data_length = 0
+
+                if event.y > 0:  # Scrolling up
+                    scroll_offset = max(scroll_offset - 1, 0)
+                elif event.y < 0:  # Scrolling down
+                    scroll_offset = min(scroll_offset + 1, max(0, data_length - 5))
+
+            # Handle button clicks
+            if event.type == pygame.MOUSEBUTTONDOWN:
                 mx, my = pygame.mouse.get_pos()
-                # Close leaderboard if X is clicked
-                # Dynamically handle leaderboard close button
+
+                # Handle leaderboard close button
                 if show_leaderboard:
                     if leaderboard_mode == "complete":
-                        close_btn = pygame.Rect((SCREEN_WIDTH + 600) // 2 - 40, (SCREEN_HEIGHT - 400) // 2 + 10, 30, 30)
+                        box_width = 600
+                        rows_visible = min(5, len(leaderboard_data))
                     elif leaderboard_mode == "personal":
-                        close_btn = pygame.Rect((SCREEN_WIDTH + 700) // 2 - 40, (SCREEN_HEIGHT - 400) // 2 + 10, 30, 30)
+                        box_width = 700
+                        rows_visible = min(5, len(personal_scores))
+                    spacing_y = 30
+                    header_height = 90
+                    box_height = header_height + rows_visible * spacing_y + 20
+                    box_x = (SCREEN_WIDTH - box_width) // 2
+                    box_y = (SCREEN_HEIGHT - box_height) // 2
+
+                    close_btn = pygame.Rect(box_x + box_width - 40, box_y + 10, 30, 30)
 
                     if close_btn.collidepoint(mx, my):
                         show_leaderboard = False
                         continue
 
+                # Handle logout confirmation
                 if show_logout_prompt:
                     yes_rect = pygame.Rect(SCREEN_WIDTH // 2 - 130, SCREEN_HEIGHT // 2 + 10, 100, 40)
                     no_rect = pygame.Rect(SCREEN_WIDTH // 2 + 30, SCREEN_HEIGHT // 2 + 10, 100, 40)
@@ -254,24 +299,23 @@ def main(map_path=None, respawn_pos=None, user_id=None, username="Guest", is_adm
                         show_logout_prompt = False
                     continue
 
+                # Handle top buttons
                 if main_menu_btn.collidepoint(mx, my):
                     pygame.quit()
                     from main import main_menu
                     main_menu(user_id=user_id, username=username, is_admin=is_admin)
 
-
                 elif modes_btn.collidepoint(mx, my):
                     show_modes_dropdown = not show_modes_dropdown
-
 
                 elif leaderboard_button.collidepoint(mx, my):
                     show_leaderboard_dropdown = not show_leaderboard_dropdown
                     print("Clicked leaderboard, show_leaderboard_dropdown:", show_leaderboard_dropdown)
 
-
                 elif map_btn.collidepoint(mx, my):
                     new_map = dropdown_map_selection(screen, info_font)
                     if new_map:
+                        # Reload map
                         global_map_path = new_map
                         display_map = pygame.image.load(global_map_path).convert_alpha()
                         collision_map = display_map.copy()
@@ -322,44 +366,27 @@ def main(map_path=None, respawn_pos=None, user_id=None, username="Guest", is_adm
                     show_retry_button = False
                     show_finish_message = False
 
-
                 elif show_modes_dropdown:
-
                     dropdown_y = modes_btn.bottom
-
                     for i, label in enumerate(["Self-Driving", "Manual", "Race"]):
-
                         rect = pygame.Rect(modes_btn.left, dropdown_y + i * button_height, button_width, button_height)
-
                         if rect.collidepoint(mx, my):
-
-                            pygame.display.quit()  # Only close the Pygame window, don't exit the program
-
+                            pygame.display.quit()
                             import main
-
                             if label == "Self-Driving":
-
                                 main.run_selected_mode("auto", user_id=user_id, username=username, is_admin=is_admin)
-
                             elif label == "Manual":
-
                                 main.run_selected_mode("manual", user_id=user_id, username=username, is_admin=is_admin)
-
                             elif label == "Race":
-
                                 main.run_selected_mode("race", user_id=user_id, username=username, is_admin=is_admin)
-
-                            return  # clean exit after switching
-
+                            return
                     show_modes_dropdown = False
 
                 if show_leaderboard_dropdown:
-
                     for rect, label in dropdown_rects:
-
                         if rect.collidepoint(mx, my):
                             leaderboard_mode = label.lower()
-                            scroll_offset = 0  # <-- reset scroll when changing mode
+                            scroll_offset = 0  # Reset scroll
                             show_leaderboard = True
                             show_leaderboard_dropdown = False
 
@@ -419,7 +446,12 @@ def main(map_path=None, respawn_pos=None, user_id=None, username="Guest", is_adm
                 show_retry_button = True
                 print(">>> Saving score for user_id:", user_id)
                 save_score(user_id, global_map_path, total_time, collision_count, checkpoint_used_count)
+
+                # Refresh leaderboards
                 leaderboard_data = get_top_scores(limit=100)
+                if user_id:
+                    personal_scores = get_user_map_stats(user_id)  # ⭐ ADD THIS ⭐
+
                 msg = f"Finished in {total_time:.2f}s | Collisions: {collision_count} | Checkpoints: {checkpoint_used_count}"
                 finish_msg_surface = info_font.render(msg, True, (0, 0, 255))
 
@@ -480,6 +512,7 @@ def main(map_path=None, respawn_pos=None, user_id=None, username="Guest", is_adm
             if leaderboard_mode == "complete":
                 draw_leaderboard(screen, leaderboard_data, scroll_offset)
             elif leaderboard_mode == "personal":
+                personal_scores = sorted(personal_scores, key=lambda x: x["map_name"])  # ⭐ Sort here
                 draw_personal_leaderboard(screen, personal_scores, scroll_offset)
 
         pygame.display.flip()

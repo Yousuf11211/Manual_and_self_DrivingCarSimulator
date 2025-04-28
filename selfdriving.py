@@ -8,7 +8,7 @@ from utils import (
     select_map,
     dropdown_map_selection,
     drag_and_drop_starting_position,
-    LightGreen, Black, CONSTANT_SPEED, TRACK_WIDTH
+    LightGreen, CONSTANT_SPEED, TRACK_WIDTH
 )
 
 

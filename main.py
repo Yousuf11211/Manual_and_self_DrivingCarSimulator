@@ -128,75 +128,82 @@ def manage_users_screen(screen):
         back_button.changeColor(mouse_pos)
         back_button.update(screen)
 
+        # ========== Improved Table Style ==========
+        background_color = (240, 240, 240)
+        header_color = (173, 216, 230)
+        row_colors = [(255, 255, 255), (220, 220, 220)]
+        hover_color = (200, 220, 255)
+        border_color = (180, 180, 180)
+
         # -------- USERS SECTION (LEFT) --------
         users_title = title_font.render("Users", True, (255, 255, 255))
-        screen.blit(users_title, (SCREEN_WIDTH // 4 - users_title.get_width() // 2, 100))
+        screen.blit(users_title, (SCREEN_WIDTH // 4 - users_title.get_width() // 2, 70))
 
-        user_buttons = []  # store remove buttons for users
+        user_table_rect = pygame.Rect(50, 140, SCREEN_WIDTH // 2 - 100, 400)
+        pygame.draw.rect(screen, background_color, user_table_rect)
+        pygame.draw.rect(screen, border_color, user_table_rect, width=2)
 
+        # Header
+        header_rect = pygame.Rect(50, 140, SCREEN_WIDTH // 2 - 100, 50)
+        pygame.draw.rect(screen, header_color, header_rect)
+        header_text = field_font.render("Username", True, (0, 0, 0))
+        screen.blit(header_text, (header_rect.x + 20, header_rect.y + 10))
+
+        user_buttons = []
         start_user_index = scroll_offset_users // scroll_speed
         for idx, username in enumerate(users[start_user_index:start_user_index + max_visible]):
-            y_pos = user_y_start + idx * 60
+            y_pos = user_y_start + idx * 60 + 50
+            row_rect = pygame.Rect(50, y_pos, SCREEN_WIDTH // 2 - 100, 50)
 
-            username_button = Button(
-                image=None,
-                pos=(SCREEN_WIDTH // 4 - 100, y_pos),
-                text_input=username,
-                font=field_font,
-                base_color="#d7fcd4",
-                hovering_color="White"
-            )
+
+            if row_rect.collidepoint(mouse_pos):
+                pygame.draw.rect(screen, hover_color, row_rect)
+            else:
+                pygame.draw.rect(screen, row_colors[idx % 2], row_rect)
+
+            username_text = field_font.render(username, True, (0, 0, 0))
+            screen.blit(username_text, (row_rect.x + 20, row_rect.y + 10))
 
             remove_text = field_font.render("Remove", True, (255, 0, 0))
-            remove_rect = remove_text.get_rect(center=(SCREEN_WIDTH // 4 + 100, y_pos))
-
-            if remove_rect.collidepoint(mouse_pos):
-                background_color = (150, 150, 150)
-            else:
-                background_color = (255, 255, 255)
-
-            pygame.draw.rect(screen, background_color, remove_rect.inflate(20, 10))
+            remove_rect = remove_text.get_rect(center=(row_rect.right - 70, row_rect.centery))
             screen.blit(remove_text, remove_rect)
 
-            username_button.changeColor(mouse_pos)
-            username_button.update(screen)
-
-            user_buttons.append((remove_rect, username))  # save button and username for checking clicks
+            user_buttons.append((remove_rect, username))
 
         # -------- MAPS SECTION (RIGHT) --------
         maps_title = title_font.render("Maps", True, (255, 255, 255))
-        screen.blit(maps_title, (SCREEN_WIDTH * 3 // 4 - maps_title.get_width() // 2, 100))
+        screen.blit(maps_title, (SCREEN_WIDTH * 3 // 4 - maps_title.get_width() // 2, 70))
 
-        map_buttons = []  # store delete buttons for maps
+        map_table_rect = pygame.Rect(SCREEN_WIDTH // 2 + 50, 140, SCREEN_WIDTH // 2 - 100, 400)
+        pygame.draw.rect(screen, background_color, map_table_rect)
+        pygame.draw.rect(screen, border_color, map_table_rect, width=2)
 
+        map_header_rect = pygame.Rect(SCREEN_WIDTH // 2 + 50, 140, SCREEN_WIDTH // 2 - 100, 50)
+        pygame.draw.rect(screen, header_color, map_header_rect)
+        map_header_text = field_font.render("Map Name", True, (0, 0, 0))
+        screen.blit(map_header_text, (map_header_rect.x + 20, map_header_rect.y + 10))
+
+        map_buttons = []
         start_map_index = scroll_offset_maps // scroll_speed
         for idx, map_name in enumerate(maps[start_map_index:start_map_index + max_visible]):
-            y_pos = map_y_start + idx * 60
+            y_pos = map_y_start + idx * 60 + 50
+            row_rect = pygame.Rect(SCREEN_WIDTH // 2 + 50, y_pos, SCREEN_WIDTH // 2 - 100, 50)
 
-            map_button = Button(
-                image=None,
-                pos=(SCREEN_WIDTH * 3 // 4 - 100, y_pos),
-                text_input=map_name,
-                font=field_font,
-                base_color="#d7fcd4",
-                hovering_color="White"
-            )
+            if row_rect.collidepoint(mouse_pos):
+                pygame.draw.rect(screen, hover_color, row_rect)
+            else:
+                pygame.draw.rect(screen, row_colors[idx % 2], row_rect)
+
+            mapname_text = field_font.render(map_name, True, (0, 0, 0))
+            screen.blit(mapname_text, (row_rect.x + 20, row_rect.y + 10))
 
             delete_text = field_font.render("Delete", True, (255, 0, 0))
-            delete_rect = delete_text.get_rect(center=(SCREEN_WIDTH * 3 // 4 + 100, y_pos))
-
-            if delete_rect.collidepoint(mouse_pos):
-                background_color = (150, 150, 150)
-            else:
-                background_color = (255, 255, 255)
-
-            pygame.draw.rect(screen, background_color, delete_rect.inflate(20, 10))
+            delete_rect = delete_text.get_rect(center=(row_rect.right - 70, row_rect.centery))
             screen.blit(delete_text, delete_rect)
 
-            map_button.changeColor(mouse_pos)
-            map_button.update(screen)
+            map_buttons.append((delete_rect, map_name))
 
-            map_buttons.append((delete_rect, map_name))  # save button and map for checking clicks
+
 
         # -------- Event Handling --------
         for event in pygame.event.get():

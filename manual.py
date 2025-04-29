@@ -408,6 +408,7 @@ def main(map_path=None, respawn_pos=None, user_id=None, username="Guest", is_adm
                 elif show_retry_button and retry_btn.collidepoint(mx, my):
                     car = Car(initial_pos=initial_dragged_position.copy(), surface=selected_surface)
                     car.update(display_map, collision_mask)
+                    current_checkpoint = initial_dragged_position.copy()
                     start_time = pygame.time.get_ticks()
                     collision_count = 0
                     checkpoint_used_count = 0

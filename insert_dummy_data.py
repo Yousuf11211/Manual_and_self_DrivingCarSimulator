@@ -7,11 +7,11 @@ init_db()
 # Step 2: Define dummy maps you want to use
 maps = [
     "maps/map.png", "maps/map1.png", "maps/map2.png", "maps/map3.png",
-    "maps/map4.png", "maps/map5.png", "maps/map6.png", "maps/map7.png", "maps/map8.png"
+    "maps/map4.png"
 ]
 
 # Step 3: Create 30 users and insert random scores
-for i in range(1, 31):  # From DummyUser1 to DummyUser30
+for i in range(1, 20):  # From DummyUser1 to DummyUser30
     username = f"DummyUser{i}"
     password = f"pass{i}"  # Simple passwords
     question = "Pet's name?"

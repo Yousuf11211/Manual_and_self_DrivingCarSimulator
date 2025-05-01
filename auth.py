@@ -2,7 +2,6 @@
 
 import pygame
 import sys
-from db import get_user, create_user, get_top_scores
 
 SCREEN_WIDTH = 1500
 SCREEN_HEIGHT = 800

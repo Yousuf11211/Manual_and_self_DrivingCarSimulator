@@ -54,7 +54,7 @@ def splash_screen(screen, font):
     splash = True
     while splash:
         screen.fill((0, 0, 0))
-        welcome_text = font.render("This is a simple car driving simulator", True, (255, 255, 255))
+        welcome_text = font.render("Welcome to TrackVerse", True, (255, 255, 255))
         instruct_text = font.render("Press any key to continue", True, (255, 255, 255))
 
         screen.blit(welcome_text, welcome_text.get_rect(center=(SCREEN_WIDTH//2, SCREEN_HEIGHT//2 - 20)))

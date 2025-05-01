@@ -115,19 +115,19 @@ python main.py
 ### 🏁 Welcome Screen
 ![Main Menu](assets/screenshots/welcome.png)
 ### 🏁 Admins Main Menu
-![Main Menu](assets/screenshots/Admins main menu.png)
+![Main Menu](assets/screenshots/Admin.png)
 ### 🏁 Main Menu
-![Main Menu](assets/screenshots/Normal main menu.png)
+![Main Menu](assets/screenshots/main.png)
 ### Entry Screen
-![Main Menu](assets/screenshots/choose log screen.png)
+![Main Menu](assets/screenshots/log.png)
 ### Login Page
-![Main Menu](assets/screenshots/login page.png)
+![Main Menu](assets/screenshots/login.png)
 ### Registration Page
-![Main Menu](assets/screenshots/registration page.png)
+![Main Menu](assets/screenshots/registration.png)
 ### Manage user and map
-![Main Menu](assets/screenshots/manage user and maps screen.png)
+![Main Menu](assets/screenshots/manage.png)
 ### Map selection Page
-![Main Menu](assets/screenshots/map selection with preview.png)
+![Main Menu](assets/screenshots/selection.png)
 
 ## 🎥 Demo Videos(click on the image to see the demo)
 
